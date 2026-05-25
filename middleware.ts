@@ -28,7 +28,6 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // getUser() validates the JWT server-side — more secure than getSession()
   const { data: { user } } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
@@ -51,6 +50,9 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Skip Next.js internals and static files; always run on pages and API routes
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // Exclude Next.js internals, static assets, and all API routes — they don't
+  // need session checking and hitting Supabase on every asset request wastes time.
+  matcher: [
+    '/((?!_next|favicon\\.ico|robots\\.txt|sitemap\\.xml|manifest\\.json|icons/|images/|api/).*)',
+  ],
 }

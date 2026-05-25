@@ -18,5 +18,7 @@ export async function GET(req: NextRequest) {
   }
 
   const context = await getSyllabusContext(query, grade, subjectId, yearBs, topK)
-  return Response.json({ context })
+  return Response.json({ context }, {
+    headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400' },
+  })
 }

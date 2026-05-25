@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -25,17 +24,16 @@ export default function AdminPage() {
   const [authError, setAuthError] = useState('')
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
 
   useEffect(() => {
     const stored = sessionStorage.getItem(ADMIN_SECRET_KEY)
     if (stored) {
       setSavedSecret(stored)
-      loadStats(stored)
+      loadStats()
     }
   }, [])
 
-  async function loadStats(adminSecret: string) {
+  async function loadStats() {
     setLoading(true)
     try {
       const supabase = createClient()
@@ -74,7 +72,7 @@ export default function AdminPage() {
     sessionStorage.setItem(ADMIN_SECRET_KEY, secret.trim())
     setSavedSecret(secret.trim())
     setAuthError('')
-    loadStats(secret.trim())
+    loadStats()
   }
 
   function handleLogout() {

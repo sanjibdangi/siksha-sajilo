@@ -4,14 +4,15 @@ import { buildPracticePrompt } from '@/lib/prompts/practice'
 import type { GradeLevel, Subject, LanguagePreference } from '@/types/subject'
 import type { QuizQuestion } from '@/types/quiz'
 
+export const maxDuration = 60
+
 export async function POST(req: Request) {
   const { subject, grade, topic, subjectId, lang } = await req.json()
 
-  const syllabusContext = await getSyllabusContext(
-    topic as string,
-    grade as GradeLevel,
-    subjectId as string
-  )
+  const syllabusContext = await Promise.race([
+    getSyllabusContext(topic as string, grade as GradeLevel, subjectId as string),
+    new Promise<string>(resolve => setTimeout(() => resolve(''), 700)),
+  ])
 
   const system = buildPracticePrompt(
     subject as Subject,
@@ -23,10 +24,10 @@ export async function POST(req: Request) {
 
   const response = await anthropic.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 4096,
-    system,
+    max_tokens: 1500,
+    system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: 'Generate the 5 MCQ questions now.' }],
-  })
+  } as Parameters<typeof anthropic.messages.create>[0])
 
   const raw = response.content[0].type === 'text' ? response.content[0].text : ''
 

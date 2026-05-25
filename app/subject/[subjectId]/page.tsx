@@ -1,4 +1,8 @@
 import { notFound } from 'next/navigation'
+
+// Topics come from the CDC syllabus which changes at most once a year —
+// serve cached HTML and revalidate in the background every hour.
+export const revalidate = 3600
 import { SUBJECTS } from '@/types/subject'
 import type { GradeLevel } from '@/types/subject'
 import { createServerClient } from '@/lib/supabase'

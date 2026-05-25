@@ -1,15 +1,24 @@
 'use client'
 
+import { useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 interface MessageBubbleProps {
   role: 'user' | 'assistant'
   content: string
+  isStreaming?: boolean
 }
 
-export function MessageBubble({ role, content }: MessageBubbleProps) {
+export function MessageBubble({ role, content, isStreaming = false }: MessageBubbleProps) {
   const isUser = role === 'user'
+
+  // Memoised so the full markdown parse only re-runs when content actually changes,
+  // not on every parent re-render (e.g. sibling state updates during chat).
+  const renderedMarkdown = useMemo(
+    () => <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>,
+    [content]
+  )
 
   return (
     <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -30,6 +39,10 @@ export function MessageBubble({ role, content }: MessageBubbleProps) {
       ].join(' ')}>
         {isUser ? (
           <p className="text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
+        ) : isStreaming ? (
+          // Plain text while streaming — avoids re-parsing full markdown on every chunk.
+          // Once streaming ends the message moves to completedMessages and gets full markdown.
+          <p className="text-sm leading-relaxed text-stone-800 whitespace-pre-wrap">{content}</p>
         ) : (
           <div className={[
             'text-sm leading-relaxed',
@@ -46,7 +59,7 @@ export function MessageBubble({ role, content }: MessageBubbleProps) {
             'prose-td:px-3 prose-td:py-1.5 prose-td:border prose-td:border-stone-200',
             'prose-blockquote:border-l-4 prose-blockquote:border-green-500 prose-blockquote:bg-green-50 prose-blockquote:pl-3 prose-blockquote:py-1 prose-blockquote:my-2 prose-blockquote:not-italic prose-blockquote:text-green-800 prose-blockquote:rounded-r-lg',
           ].join(' ')}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+            {renderedMarkdown}
           </div>
         )}
       </div>

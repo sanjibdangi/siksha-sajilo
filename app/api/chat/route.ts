@@ -11,7 +11,13 @@ export async function POST(req: Request) {
 
     const lastMsg = messages.at(-1)
     const query = typeof lastMsg?.content === 'string' ? lastMsg.content : ''
-    const syllabusContext = await getSyllabusContext(query, grade as GradeLevel, subjectId as string)
+    // Race RAG against a 700ms timeout — if Voyage AI or Supabase is slow, start
+    // streaming immediately with empty context rather than making the user wait.
+    // The in-memory cache in lib/rag.ts means subsequent identical queries are free.
+    const syllabusContext = await Promise.race([
+      getSyllabusContext(query, grade as GradeLevel, subjectId as string),
+      new Promise<string>(resolve => setTimeout(() => resolve(''), 700)),
+    ])
 
     const system = buildTutorPrompt(
       subject as Subject,
@@ -22,13 +28,16 @@ export async function POST(req: Request) {
       (lang as LanguagePreference) ?? 'english'
     )
 
+    // cache_control marks the system prompt for Anthropic's prompt caching.
+    // On cache hits (same subject/grade/topic/confidence) TTFB drops ~200-300ms
+    // and input token cost falls by 90%.
     const stream = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 4096,
-      system,
+      system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
       messages,
       stream: true,
-    })
+    } as Parameters<typeof anthropic.messages.create>[0])
 
     const encoder = new TextEncoder()
     const readable = new ReadableStream({

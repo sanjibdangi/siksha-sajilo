@@ -4,8 +4,21 @@ import type { GradeLevel, ConfidenceLevel, Subject, LanguagePreference } from '@
 
 export const maxDuration = 60
 
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+const MAX_IMAGE_MB = 20
+
 export async function POST(req: Request) {
   const { messages, subject, grade, confidence, lang, imageBase64, imageMediaType } = await req.json()
+
+  if (imageBase64 && imageMediaType) {
+    if (!ALLOWED_IMAGE_TYPES.includes(imageMediaType)) {
+      return Response.json({ error: 'Unsupported image type' }, { status: 400 })
+    }
+    const approxMB = (imageBase64.length * 0.75) / (1024 * 1024)
+    if (approxMB > MAX_IMAGE_MB) {
+      return Response.json({ error: `Image too large (max ${MAX_IMAGE_MB} MB)` }, { status: 400 })
+    }
+  }
 
   const system = buildSolverPrompt(
     subject as Subject,
@@ -35,10 +48,10 @@ export async function POST(req: Request) {
   const stream = await anthropic.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,
-    system,
+    system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
     messages: apiMessages,
     stream: true,
-  })
+  } as Parameters<typeof anthropic.messages.create>[0])
 
   const encoder = new TextEncoder()
   const readable = new ReadableStream({

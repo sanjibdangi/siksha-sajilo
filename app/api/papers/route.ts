@@ -23,5 +23,10 @@ export async function GET(req: Request) {
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
 
-  return Response.json({ questions: (data ?? []) as PastPaperQuestion[] })
+  // Past papers change at most once a year — serve from Vercel CDN for 24 h,
+  // stale-while-revalidate keeps serving the cached version for up to 7 days
+  // while a background revalidation is in flight.
+  return Response.json({ questions: (data ?? []) as PastPaperQuestion[] }, {
+    headers: { 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800' },
+  })
 }

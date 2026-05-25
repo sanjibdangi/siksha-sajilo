@@ -1,7 +1,10 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { MessageBubble } from './MessageBubble'
+import { useState, useRef, useEffect, memo, useMemo, useCallback } from 'react'
+import { MessageBubble as MessageBubbleBase } from './MessageBubble'
+
+// Prevent completed messages from re-rendering on every streaming chunk
+const MessageBubble = memo(MessageBubbleBase)
 import { QuickPrompts } from './QuickPrompts'
 import { TypingIndicator } from './TypingIndicator'
 import type { Subject, GradeLevel, ConfidenceLevel, LanguagePreference } from '@/types/subject'
@@ -27,10 +30,38 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
   const [streaming, setStreaming] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  // Buffer incoming stream chunks between rAF ticks so React renders at most
+  // once per animation frame (~60fps) instead of on every network chunk.
+  const streamBufferRef = useRef('')
+  const rafRef = useRef<number | null>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+    }
+  }, [])
+
+  const scheduleFlush = useCallback(() => {
+    if (rafRef.current !== null) return
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null
+      const text = streamBufferRef.current
+      if (!text) return
+      streamBufferRef.current = ''
+      setMessages(prev => {
+        const next = [...prev]
+        next[next.length - 1] = {
+          ...next[next.length - 1],
+          content: next[next.length - 1].content + text,
+        }
+        return next
+      })
+    })
+  }, [])
 
   async function sendMessage(text: string) {
     const trimmed = text.trim()
@@ -58,18 +89,28 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
 
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
+      streamBufferRef.current = ''
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        const chunk = decoder.decode(value, { stream: true })
-        setMessages((prev) => {
-          const updated = [...prev]
-          updated[updated.length - 1] = {
-            ...updated[updated.length - 1],
-            content: updated[updated.length - 1].content + chunk,
-          }
-          return updated
+        streamBufferRef.current += decoder.decode(value, { stream: true })
+        scheduleFlush()
+      }
+
+      // Cancel any pending rAF and do a final synchronous flush so the last
+      // chunk is committed before setStreaming(false) clears the streaming state.
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
+      const remaining = streamBufferRef.current
+      streamBufferRef.current = ''
+      if (remaining) {
+        setMessages(prev => {
+          const next = [...prev]
+          next[next.length - 1] = { ...next[next.length - 1], content: next[next.length - 1].content + remaining }
+          return next
         })
       }
     } catch (err) {
@@ -101,6 +142,15 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
   const lastMsg = messages[messages.length - 1]
   const showTyping = streaming && lastMsg?.role === 'assistant' && lastMsg.content === ''
 
+  // Split so that only the last bubble re-renders on every streaming chunk.
+  // completedMessages is stable while streaming; only streamingMsg changes.
+  const completedMessages = useMemo(
+    () => (streaming ? messages.slice(0, -1) : messages),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [streaming ? messages.length - 1 : messages.length, streaming]
+  )
+  const streamingMsg = streaming ? messages[messages.length - 1] : null
+
   return (
     <div className="flex flex-col h-full bg-[#faf9f7]">
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
@@ -110,12 +160,14 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
           <QuickPrompts grade={grade} onSelect={sendMessage} />
         )}
 
-        {messages.map((msg, i) => {
-          if (showTyping && i === messages.length - 1 && msg.role === 'assistant') {
-            return <TypingIndicator key={i} />
-          }
-          return <MessageBubble key={i} role={msg.role} content={msg.content} />
-        })}
+        {completedMessages.map((msg, i) => (
+          <MessageBubble key={i} role={msg.role} content={msg.content} />
+        ))}
+
+        {showTyping && <TypingIndicator />}
+        {streamingMsg && !showTyping && (
+          <MessageBubble key="streaming" role="assistant" content={streamingMsg.content} isStreaming />
+        )}
 
         <div ref={bottomRef} />
       </div>
