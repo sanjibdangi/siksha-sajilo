@@ -15,9 +15,12 @@ export function createClient() {
 }
 
 // Server-side client using service role key — bypasses RLS, for API routes only.
-// Singleton: reused across warm Vercel invocations to avoid reconnection overhead.
-let _serverClient: ReturnType<typeof createSupabaseClient> | null = null
+// Lazy singleton: created on first request, not at module-load time (safe for
+// build-time page collection). _factory gives ReturnType<> a concrete, non-
+// overloaded signature so TypeScript resolves generics as `any` (matching the
+// direct-call inference) rather than the SDK's last overload which defaults to `never`.
+const _factory = () => createSupabaseClient(supabaseUrl, supabaseServiceKey)
+let _serverClient: ReturnType<typeof _factory> | undefined
 export function createServerClient() {
-  if (!_serverClient) _serverClient = createSupabaseClient(supabaseUrl, supabaseServiceKey)
-  return _serverClient
+  return (_serverClient ??= _factory())
 }

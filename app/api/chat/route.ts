@@ -31,13 +31,15 @@ export async function POST(req: Request) {
     // cache_control marks the system prompt for Anthropic's prompt caching.
     // On cache hits (same subject/grade/topic/confidence) TTFB drops ~200-300ms
     // and input token cost falls by 90%.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const systemBlocks: any = [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
     const stream = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 4096,
-      system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+      system: systemBlocks,
       messages,
       stream: true,
-    } as Parameters<typeof anthropic.messages.create>[0])
+    })
 
     const encoder = new TextEncoder()
     const readable = new ReadableStream({

@@ -22,12 +22,14 @@ export async function POST(req: Request) {
     (lang as LanguagePreference) ?? 'english'
   )
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const systemBlocks: any = [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
   const response = await anthropic.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 1500,
-    system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+    system: systemBlocks,
     messages: [{ role: 'user', content: 'Generate the 5 MCQ questions now.' }],
-  } as Parameters<typeof anthropic.messages.create>[0])
+  })
 
   const raw = response.content[0].type === 'text' ? response.content[0].text : ''
 

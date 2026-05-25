@@ -45,13 +45,15 @@ export async function POST(req: Request) {
     })
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const systemBlocks: any = [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
   const stream = await anthropic.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,
-    system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+    system: systemBlocks,
     messages: apiMessages,
     stream: true,
-  } as Parameters<typeof anthropic.messages.create>[0])
+  })
 
   const encoder = new TextEncoder()
   const readable = new ReadableStream({
