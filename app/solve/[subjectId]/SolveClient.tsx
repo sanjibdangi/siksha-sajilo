@@ -24,6 +24,7 @@ export function SolveClient({ subject, subjectId, grade, confidence, lang }: Sol
   const [phase, setPhase] = useState<'idle' | 'active'>('idle')
   const [draft, setDraft] = useState('')
   const [photo, setPhoto] = useState<{ base64: string; mediaType: string; previewUrl: string } | null>(null)
+  const [photoError, setPhotoError] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
   const [followUp, setFollowUp] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -42,9 +43,27 @@ export function SolveClient({ subject, subjectId, grade, confidence, lang }: Sol
     }
   }, [streaming, phase])
 
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+  const MAX_MB = 20
+
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+
+    setPhotoError('')
+
+    // Client-side validation mirrors the server — gives instant feedback
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setPhotoError('Only JPEG, PNG, WebP, or GIF images are supported.')
+      e.target.value = ''
+      return
+    }
+    if (file.size > MAX_MB * 1024 * 1024) {
+      setPhotoError(`Image is too large. Please use an image under ${MAX_MB} MB.`)
+      e.target.value = ''
+      return
+    }
+
     const reader = new FileReader()
     reader.onload = (ev) => {
       const result = ev.target?.result as string
@@ -83,7 +102,11 @@ export function SolveClient({ subject, subjectId, grade, confidence, lang }: Sol
         }),
       })
 
-      if (!res.ok || !res.body) throw new Error('Stream failed')
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error ?? `Request failed (${res.status})`)
+      }
+      if (!res.body) throw new Error('Stream failed')
 
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
@@ -101,13 +124,11 @@ export function SolveClient({ subject, subjectId, grade, confidence, lang }: Sol
           return updated
         })
       }
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
       setMessages((prev) => {
         const updated = [...prev]
-        updated[updated.length - 1] = {
-          role: 'assistant',
-          content: 'Something went wrong. Please try again.',
-        }
+        updated[updated.length - 1] = { role: 'assistant', content: msg }
         return updated
       })
     } finally {
@@ -217,7 +238,7 @@ export function SolveClient({ subject, subjectId, grade, confidence, lang }: Sol
                   <p className="text-xs text-indigo-500">Add a note below, or solve directly</p>
                 </div>
                 <button
-                  onClick={() => setPhoto(null)}
+                  onClick={() => { setPhoto(null); setPhotoError('') }}
                   className="shrink-0 text-indigo-400 hover:text-indigo-600 transition-colors"
                   aria-label="Remove photo"
                 >
@@ -225,6 +246,15 @@ export function SolveClient({ subject, subjectId, grade, confidence, lang }: Sol
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
+              </div>
+            )}
+
+            {photoError && (
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                <svg className="h-4 w-4 text-red-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-red-700">{photoError}</p>
               </div>
             )}
 
