@@ -5,6 +5,9 @@ import Link from 'next/link'
 import type { Subject, GradeLevel, LanguagePreference } from '@/types/subject'
 import type { Flashcard } from '@/types/flashcard'
 import { createClient } from '@/lib/supabase'
+import { getTheme, getStars } from '@/lib/subjectTheme'
+
+type Phase = 'loading' | 'error' | 'study' | 'complete'
 
 interface MemorizeClientProps {
   subject: Subject
@@ -12,82 +15,6 @@ interface MemorizeClientProps {
   grade: GradeLevel
   topic: string | null
   lang: LanguagePreference
-}
-
-type Phase = 'loading' | 'error' | 'study' | 'complete'
-
-const SUBJECT_THEME: Record<string, {
-  gradient: string
-  glow: string
-  ghost1: string
-  ghost2: string
-  accent: string
-  pill: string
-  bar: string
-}> = {
-  mathematics: {
-    gradient: 'from-blue-500 via-blue-600 to-indigo-700',
-    glow: 'shadow-blue-200',
-    ghost1: 'bg-blue-200',
-    ghost2: 'bg-blue-300',
-    accent: 'text-blue-600',
-    pill: 'bg-blue-100 text-blue-700',
-    bar: 'bg-blue-500',
-  },
-  science: {
-    gradient: 'from-teal-400 via-emerald-500 to-green-700',
-    glow: 'shadow-teal-200',
-    ghost1: 'bg-teal-200',
-    ghost2: 'bg-teal-300',
-    accent: 'text-teal-600',
-    pill: 'bg-teal-100 text-teal-700',
-    bar: 'bg-teal-500',
-  },
-  english: {
-    gradient: 'from-violet-500 via-purple-600 to-purple-800',
-    glow: 'shadow-violet-200',
-    ghost1: 'bg-violet-200',
-    ghost2: 'bg-violet-300',
-    accent: 'text-violet-600',
-    pill: 'bg-violet-100 text-violet-700',
-    bar: 'bg-violet-500',
-  },
-  nepali: {
-    gradient: 'from-red-500 via-red-600 to-rose-700',
-    glow: 'shadow-red-200',
-    ghost1: 'bg-red-200',
-    ghost2: 'bg-red-300',
-    accent: 'text-red-600',
-    pill: 'bg-red-100 text-red-700',
-    bar: 'bg-red-500',
-  },
-  social: {
-    gradient: 'from-orange-400 via-orange-500 to-amber-600',
-    glow: 'shadow-orange-200',
-    ghost1: 'bg-orange-200',
-    ghost2: 'bg-orange-300',
-    accent: 'text-orange-600',
-    pill: 'bg-orange-100 text-orange-700',
-    bar: 'bg-orange-500',
-  },
-  optmath: {
-    gradient: 'from-cyan-500 via-sky-500 to-blue-700',
-    glow: 'shadow-cyan-200',
-    ghost1: 'bg-cyan-200',
-    ghost2: 'bg-cyan-300',
-    accent: 'text-cyan-600',
-    pill: 'bg-cyan-100 text-cyan-700',
-    bar: 'bg-cyan-500',
-  },
-}
-
-const DEFAULT_THEME = SUBJECT_THEME.mathematics
-
-function getStars(known: number, total: number) {
-  const pct = known / total
-  if (pct === 1) return 3
-  if (pct >= 0.7) return 2
-  return 1
 }
 
 function saveProgress(userId: string, subjectId: string, topic: string | null, known: number, total: number) {
@@ -99,7 +26,7 @@ function saveProgress(userId: string, subjectId: string, topic: string | null, k
 }
 
 export function MemorizeClient({ subject, subjectId, grade, topic, lang }: MemorizeClientProps) {
-  const theme = SUBJECT_THEME[subjectId] ?? DEFAULT_THEME
+  const theme = getTheme(subjectId)
 
   const [fetchKey, setFetchKey] = useState(0)
   const [phase, setPhase] = useState<Phase>('loading')
