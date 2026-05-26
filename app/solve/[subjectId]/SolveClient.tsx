@@ -6,6 +6,7 @@ import { MessageBubble } from '@/components/tutor/MessageBubble'
 import { TypingIndicator } from '@/components/tutor/TypingIndicator'
 import type { Subject, GradeLevel, ConfidenceLevel, LanguagePreference } from '@/types/subject'
 import { getTheme } from '@/lib/subjectTheme'
+import { FeedbackWidget } from '@/components/feedback/FeedbackWidget'
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_IMAGE_MB = 20
@@ -352,7 +353,21 @@ export function SolveClient({ subject, subjectId, grade, confidence, lang }: Sol
           if (showTyping && i === messages.length - 1 && msg.role === 'assistant') {
             return <TypingIndicator key={i} />
           }
-          return <MessageBubble key={i} role={msg.role} content={msg.content} />
+          const isCompletedAssistant = msg.role === 'assistant' && !(streaming && i === messages.length - 1)
+          return (
+            <div key={i}>
+              <MessageBubble role={msg.role} content={msg.content} />
+              {isCompletedAssistant && (
+                <FeedbackWidget
+                  subjectId={subjectId}
+                  grade={grade}
+                  topic={null}
+                  mode="solve"
+                  onStillConfused={() => callStream("I still don't understand. Can you explain this a different way?", messages)}
+                />
+              )}
+            </div>
+          )
         })}
         <div ref={bottomRef} />
       </div>

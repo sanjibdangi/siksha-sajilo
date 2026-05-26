@@ -8,6 +8,7 @@ const MessageBubble = memo(MessageBubbleBase)
 import { QuickPrompts } from './QuickPrompts'
 import { TypingIndicator } from './TypingIndicator'
 import type { Subject, GradeLevel, ConfidenceLevel, LanguagePreference } from '@/types/subject'
+import { FeedbackWidget } from '@/components/feedback/FeedbackWidget'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -161,7 +162,18 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
         )}
 
         {completedMessages.map((msg, i) => (
-          <MessageBubble key={i} role={msg.role} content={msg.content} />
+          <div key={i}>
+            <MessageBubble role={msg.role} content={msg.content} />
+            {msg.role === 'assistant' && (
+              <FeedbackWidget
+                subjectId={subjectId}
+                grade={grade}
+                topic={topic}
+                mode="tutor"
+                onStillConfused={() => sendMessage("I'm still confused. Can you explain this a completely different way?")}
+              />
+            )}
+          </div>
         ))}
 
         {showTyping && <TypingIndicator />}

@@ -223,13 +223,20 @@ export default function AdminPage() {
               </div>
             </Link>
 
-            <div className="flex items-start gap-4 p-4 rounded-lg border border-gray-200 bg-gray-50 opacity-70">
+            <Link
+              href="/admin/insights"
+              className="flex items-start gap-4 p-4 rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all group"
+            >
               <span className="text-2xl">📊</span>
               <div>
-                <p className="text-sm font-semibold text-gray-700">Progress analytics</p>
-                <p className="text-xs text-gray-500 mt-0.5">Student engagement data — coming soon.</p>
+                <p className="text-sm font-semibold text-gray-900 group-hover:text-indigo-700 transition-colors">
+                  Knowledge insights
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  See which topics students struggle with and where to add better sources.
+                </p>
               </div>
-            </div>
+            </Link>
           </div>
         </Card>
 
