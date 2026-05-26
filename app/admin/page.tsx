@@ -191,7 +191,7 @@ export default function AdminPage() {
 
         {/* Admin actions */}
         <Card padding="md" className="space-y-4">
-          <h2 className="text-sm font-semibold text-gray-700">Syllabus management</h2>
+          <h2 className="text-sm font-semibold text-gray-700">Admin tools</h2>
           <div className="grid sm:grid-cols-2 gap-3">
             <Link
               href="/admin/syllabus"
@@ -204,6 +204,21 @@ export default function AdminPage() {
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   View active chunks, trigger new ingestion jobs, upload PDFs.
+                </p>
+              </div>
+            </Link>
+
+            <Link
+              href="/admin/users"
+              className="flex items-start gap-4 p-4 rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all group"
+            >
+              <span className="text-2xl">👤</span>
+              <div>
+                <p className="text-sm font-semibold text-gray-900 group-hover:text-indigo-700 transition-colors">
+                  User management
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Create, view, and delete student accounts.
                 </p>
               </div>
             </Link>
