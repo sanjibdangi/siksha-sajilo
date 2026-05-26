@@ -7,7 +7,6 @@ interface ScoreScreenProps {
   total: number
   grade: GradeLevel
   subjectId: string
-  subjectIcon: string
   topic: string | null
   onRetry: () => void
 }
@@ -24,7 +23,7 @@ function getScoreMessage(score: number, total: number, grade: GradeLevel): strin
   return "This topic needs more practice — and that's completely okay. You've found exactly where to focus next."
 }
 
-export function ScoreScreen({ score, total, grade, subjectId, subjectIcon, topic, onRetry }: ScoreScreenProps) {
+export function ScoreScreen({ score, total, grade, subjectId, topic, onRetry }: ScoreScreenProps) {
   const theme = getTheme(subjectId)
   const stars = getStars(score, total)
   const pct = Math.round((score / total) * 100)

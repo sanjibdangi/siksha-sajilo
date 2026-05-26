@@ -142,7 +142,6 @@ export function PracticeClient({ subject, subjectId, grade, topic, lang }: Pract
             total={questions.length}
             selectedIndex={selectedIndex}
             subjectId={subjectId}
-            subjectIcon={subject.icon}
             onSelect={handleSelect}
             onNext={handleNext}
             isLast={currentIndex === questions.length - 1}
@@ -155,7 +154,6 @@ export function PracticeClient({ subject, subjectId, grade, topic, lang }: Pract
             total={questions.length}
             grade={grade}
             subjectId={subjectId}
-            subjectIcon={subject.icon}
             topic={topic}
             onRetry={retry}
           />

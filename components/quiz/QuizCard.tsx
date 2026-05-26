@@ -12,7 +12,6 @@ interface QuizCardProps {
   total: number
   selectedIndex: number | null
   subjectId: string
-  subjectIcon: string
   onSelect: (index: number) => void
   onNext: () => void
   isLast: boolean
@@ -24,7 +23,6 @@ export function QuizCard({
   total,
   selectedIndex,
   subjectId,
-  subjectIcon,
   onSelect,
   onNext,
   isLast,
