@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { LoadingDots } from '@/components/ui/LoadingDots'
 import type { Subject, GradeLevel, LanguagePreference } from '@/types/subject'
 import type { Flashcard } from '@/types/flashcard'
 import { createClient } from '@/lib/supabase'
@@ -17,26 +16,103 @@ interface MemorizeClientProps {
 
 type Phase = 'loading' | 'error' | 'study' | 'complete'
 
+const SUBJECT_THEME: Record<string, {
+  gradient: string
+  glow: string
+  ghost1: string
+  ghost2: string
+  accent: string
+  pill: string
+  bar: string
+}> = {
+  mathematics: {
+    gradient: 'from-blue-500 via-blue-600 to-indigo-700',
+    glow: 'shadow-blue-200',
+    ghost1: 'bg-blue-200',
+    ghost2: 'bg-blue-300',
+    accent: 'text-blue-600',
+    pill: 'bg-blue-100 text-blue-700',
+    bar: 'bg-blue-500',
+  },
+  science: {
+    gradient: 'from-teal-400 via-emerald-500 to-green-700',
+    glow: 'shadow-teal-200',
+    ghost1: 'bg-teal-200',
+    ghost2: 'bg-teal-300',
+    accent: 'text-teal-600',
+    pill: 'bg-teal-100 text-teal-700',
+    bar: 'bg-teal-500',
+  },
+  english: {
+    gradient: 'from-violet-500 via-purple-600 to-purple-800',
+    glow: 'shadow-violet-200',
+    ghost1: 'bg-violet-200',
+    ghost2: 'bg-violet-300',
+    accent: 'text-violet-600',
+    pill: 'bg-violet-100 text-violet-700',
+    bar: 'bg-violet-500',
+  },
+  nepali: {
+    gradient: 'from-red-500 via-red-600 to-rose-700',
+    glow: 'shadow-red-200',
+    ghost1: 'bg-red-200',
+    ghost2: 'bg-red-300',
+    accent: 'text-red-600',
+    pill: 'bg-red-100 text-red-700',
+    bar: 'bg-red-500',
+  },
+  social: {
+    gradient: 'from-orange-400 via-orange-500 to-amber-600',
+    glow: 'shadow-orange-200',
+    ghost1: 'bg-orange-200',
+    ghost2: 'bg-orange-300',
+    accent: 'text-orange-600',
+    pill: 'bg-orange-100 text-orange-700',
+    bar: 'bg-orange-500',
+  },
+  optmath: {
+    gradient: 'from-cyan-500 via-sky-500 to-blue-700',
+    glow: 'shadow-cyan-200',
+    ghost1: 'bg-cyan-200',
+    ghost2: 'bg-cyan-300',
+    accent: 'text-cyan-600',
+    pill: 'bg-cyan-100 text-cyan-700',
+    bar: 'bg-cyan-500',
+  },
+}
+
+const DEFAULT_THEME = SUBJECT_THEME.mathematics
+
+function getStars(known: number, total: number) {
+  const pct = known / total
+  if (pct === 1) return 3
+  if (pct >= 0.7) return 2
+  return 1
+}
+
 function saveProgress(userId: string, subjectId: string, topic: string | null, known: number, total: number) {
   fetch('/api/progress', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId, subjectId, topic, mode: 'memorize', score: known, total }),
-  }).catch(() => { /* fire-and-forget */ })
+  }).catch(() => {})
 }
 
 export function MemorizeClient({ subject, subjectId, grade, topic, lang }: MemorizeClientProps) {
+  const theme = SUBJECT_THEME[subjectId] ?? DEFAULT_THEME
+
   const [fetchKey, setFetchKey] = useState(0)
   const [phase, setPhase] = useState<Phase>('loading')
   const [cards, setCards] = useState<Flashcard[]>([])
-  const [queue, setQueue] = useState<number[]>([])   // indices of cards to show
+  const [queue, setQueue] = useState<number[]>([])
   const [currentPos, setCurrentPos] = useState(0)
   const [flipped, setFlipped] = useState(false)
   const [known, setKnown] = useState<Set<number>>(new Set())
   const [review, setReview] = useState<Set<number>>(new Set())
   const [round, setRound] = useState(1)
-  const startTime = useRef(Date.now())
+  const [transitioning, setTransitioning] = useState(false)
   const savedRef = useRef(false)
+  const pendingAction = useRef<null | 'knew' | 'again'>(null)
 
   useEffect(() => {
     setPhase('loading')
@@ -45,8 +121,8 @@ export function MemorizeClient({ subject, subjectId, grade, topic, lang }: Memor
     setReview(new Set())
     setCurrentPos(0)
     setRound(1)
+    setTransitioning(false)
     savedRef.current = false
-    startTime.current = Date.now()
 
     let active = true
     fetch('/api/memorize/generate', {
@@ -67,41 +143,45 @@ export function MemorizeClient({ subject, subjectId, grade, topic, lang }: Memor
     return () => { active = false }
   }, [fetchKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function currentCardIndex() { return queue[currentPos] }
+  const currentCardIndex = () => queue[currentPos]
 
-  function handleKnew() {
+  function doAdvance(action: 'knew' | 'again') {
+    if (transitioning) return
     const idx = currentCardIndex()
-    const newKnown = new Set(known).add(idx)
-    setKnown(newKnown)
-    advance(newKnown, review)
-  }
 
-  function handleStudyAgain() {
-    const idx = currentCardIndex()
-    const newReview = new Set(review).add(idx)
-    setReview(newReview)
-    advance(known, newReview)
-  }
+    let newKnown = known
+    let newReview = review
 
-  function advance(currentKnown: Set<number>, currentReview: Set<number>) {
-    setFlipped(false)
-    const next = currentPos + 1
-    if (next < queue.length) {
-      setCurrentPos(next)
+    if (action === 'knew') {
+      newKnown = new Set(known).add(idx)
+      setKnown(newKnown)
     } else {
-      // End of this round
-      if (currentReview.size === 0) {
-        // All known — done
-        finishSession(currentKnown.size, cards.length)
-        setPhase('complete')
-      } else {
-        // Another round with review cards
-        setQueue(Array.from(currentReview))
-        setCurrentPos(0)
-        setRound(r => r + 1)
-        setReview(new Set())
-      }
+      newReview = new Set(review).add(idx)
+      setReview(newReview)
     }
+
+    pendingAction.current = action
+    setTransitioning(true)
+    setFlipped(false)
+
+    setTimeout(() => {
+      const next = currentPos + 1
+      if (next < queue.length) {
+        setCurrentPos(next)
+      } else {
+        if (newReview.size === 0) {
+          finishSession(newKnown.size, cards.length)
+          setPhase('complete')
+        } else {
+          setQueue(Array.from(newReview))
+          setCurrentPos(0)
+          setRound(r => r + 1)
+          setReview(new Set())
+        }
+      }
+      pendingAction.current = null
+      setTransitioning(false)
+    }, 280)
   }
 
   async function finishSession(knownCount: number, totalCount: number) {
@@ -112,152 +192,277 @@ export function MemorizeClient({ subject, subjectId, grade, topic, lang }: Memor
     if (user) saveProgress(user.id, subjectId, topic, knownCount, totalCount)
   }
 
+  // Keyboard shortcuts
+  const handleKey = useCallback((e: KeyboardEvent) => {
+    if (phase !== 'study') return
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setFlipped(f => !f) }
+    if (e.key === 'ArrowRight' && flipped) doAdvance('knew')
+    if (e.key === 'ArrowLeft' && flipped) doAdvance('again')
+  }, [phase, flipped]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [handleKey])
+
   function retry() { setFetchKey(k => k + 1) }
 
   const gradeLabel = grade === 'SEE Prep' ? 'SEE Prep' : `Class ${grade}`
   const card = cards[currentCardIndex()]
-  const progress = phase === 'study' ? ((currentPos) / queue.length) * 100 : 0
+  const progressPct = phase === 'study' ? (currentPos / queue.length) * 100 : 0
+  const stars = phase === 'complete' ? getStars(known.size, cards.length) : 0
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#faf9f7]">
+    <div className="min-h-screen flex flex-col bg-[#f5f4f2]">
+
+      {/* Header */}
       <header className="bg-white border-b border-stone-200 px-4 py-3 flex items-center gap-3 shrink-0">
         <Link
           href={`/subject/${subjectId}`}
-          className="text-stone-400 hover:text-stone-600 transition-colors p-1 -ml-1 rounded-lg hover:bg-stone-100"
+          className="text-stone-400 hover:text-stone-600 transition-colors p-1.5 -ml-1 rounded-xl hover:bg-stone-100"
           aria-label="Back"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </Link>
-        <div className="flex items-center gap-2 min-w-0 flex-1">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <span className="text-xl shrink-0">{subject.icon}</span>
           <div className="min-w-0">
-            <p className="font-semibold text-stone-900 text-sm leading-tight truncate">
-              {subject.name} · Flashcards
-            </p>
+            <p className="font-bold text-stone-900 text-sm leading-tight">{subject.name}</p>
             <p className="text-xs text-stone-400">
               {gradeLabel}{topic ? ` · ${topic}` : ''}
-              {phase === 'study' && round > 1 ? ` · Round ${round}` : ''}
             </p>
           </div>
         </div>
+        {phase === 'study' && round > 1 && (
+          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${theme.pill}`}>
+            Round {round}
+          </span>
+        )}
         {phase === 'study' && (
-          <span className="text-xs text-stone-400 shrink-0">{currentPos}/{queue.length}</span>
+          <span className="text-sm font-bold text-stone-500 tabular-nums shrink-0">
+            {currentPos + 1}<span className="text-stone-300">/{queue.length}</span>
+          </span>
         )}
       </header>
 
-      {phase === 'study' && (
-        <div className="h-1 bg-stone-100">
-          <div
-            className="h-1 bg-violet-500 transition-all duration-300"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      )}
+      {/* Progress bar */}
+      <div className="h-1.5 bg-stone-100">
+        <div
+          className={`h-1.5 ${theme.bar} transition-all duration-500 ease-out`}
+          style={{ width: `${progressPct}%` }}
+        />
+      </div>
 
-      <main className="flex-1 max-w-lg w-full mx-auto px-4 py-8 flex flex-col">
+      <main className="flex-1 max-w-lg w-full mx-auto px-4 py-6 flex flex-col gap-5">
 
+        {/* ── LOADING ── */}
         {phase === 'loading' && (
-          <div className="flex flex-col items-center gap-3 py-24 text-stone-400">
-            <LoadingDots className="text-violet-400" />
-            <p className="text-sm">Preparing your flashcards...</p>
+          <div className="flex-1 flex flex-col items-center justify-center gap-6">
+            <div className={`w-20 h-20 rounded-3xl bg-gradient-to-br ${theme.gradient} flex items-center justify-center shadow-xl ${theme.glow} shadow-lg`}>
+              <span className="text-4xl">{subject.icon}</span>
+            </div>
+            <div className="text-center space-y-2">
+              <p className="font-bold text-stone-800">Building your flashcards</p>
+              <p className="text-sm text-stone-400">Pulling the most important concepts from {topic ?? subject.name}...</p>
+            </div>
+            <div className="flex gap-1.5">
+              {[0, 1, 2].map(i => (
+                <div
+                  key={i}
+                  className={`h-2 w-2 rounded-full ${theme.bar} animate-bounce`}
+                  style={{ animationDelay: `${i * 0.15}s` }}
+                />
+              ))}
+            </div>
           </div>
         )}
 
+        {/* ── ERROR ── */}
         {phase === 'error' && (
-          <div className="flex flex-col items-center gap-4 py-24 text-center">
-            <p className="text-stone-600 text-sm">Couldn&apos;t load flashcards. Please try again.</p>
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center">
+            <p className="text-4xl">⚠️</p>
+            <p className="text-stone-600 font-medium">Couldn&apos;t load flashcards</p>
             <button
               onClick={retry}
-              className="px-5 py-2.5 bg-violet-600 text-white text-sm font-semibold rounded-xl hover:bg-violet-700 transition-colors"
+              className={`px-6 py-3 bg-gradient-to-r ${theme.gradient} text-white font-semibold rounded-2xl shadow-md active:scale-95 transition-transform`}
             >
-              Retry
+              Try again
             </button>
           </div>
         )}
 
+        {/* ── STUDY ── */}
         {phase === 'study' && card && (
-          <div className="flex flex-col gap-6 flex-1">
-            {/* Card */}
-            <button
-              onClick={() => setFlipped(f => !f)}
-              className="flex-1 min-h-[260px] bg-white rounded-3xl border-2 border-stone-200 shadow-sm hover:border-violet-300 hover:shadow-md transition-all flex flex-col items-center justify-center gap-4 px-6 py-8 text-center active:scale-[0.99]"
-            >
-              {!flipped ? (
-                <>
-                  <span className="text-3xl">🃏</span>
-                  <p className="text-stone-900 font-semibold text-lg leading-snug">{card.front}</p>
-                  <p className="text-xs text-stone-400 mt-2">Tap to reveal answer</p>
-                </>
-              ) : (
-                <>
-                  <p className="text-stone-900 text-base leading-relaxed">{card.back}</p>
+          <div
+            className={`flex flex-col gap-5 flex-1 transition-opacity duration-200 ${transitioning ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
+            style={{ transitionProperty: 'opacity, transform' }}
+          >
+            {/* Card stack + flip */}
+            <div className="relative flex-1 min-h-[300px]" style={{ perspective: '1200px' }}>
+              {/* Ghost cards for depth */}
+              <div className={`absolute inset-x-3 bottom-0 top-3 rounded-3xl ${theme.ghost1} opacity-40`} />
+              <div className={`absolute inset-x-1.5 bottom-0 top-1.5 rounded-3xl ${theme.ghost2} opacity-60`} />
+
+              {/* Flip container */}
+              <div
+                onClick={() => !transitioning && setFlipped(f => !f)}
+                className={`absolute inset-0 cursor-pointer select-none`}
+                style={{
+                  transformStyle: 'preserve-3d',
+                  transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                  transition: 'transform 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+              >
+                {/* FRONT */}
+                <div
+                  className="absolute inset-0 rounded-3xl bg-white shadow-xl flex flex-col items-center justify-center gap-5 px-8 py-10 text-center"
+                  style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
+                >
+                  <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${theme.gradient} flex items-center justify-center shadow-md`}>
+                    <span className="text-lg">{subject.icon}</span>
+                  </div>
+                  <p className="text-stone-900 font-bold text-xl leading-snug">{card.front}</p>
+                  <div className="flex items-center gap-2 text-stone-300">
+                    <div className="h-px w-8 bg-stone-200" />
+                    <p className="text-xs font-medium">tap to flip</p>
+                    <div className="h-px w-8 bg-stone-200" />
+                  </div>
+                </div>
+
+                {/* BACK */}
+                <div
+                  className={`absolute inset-0 rounded-3xl bg-gradient-to-br ${theme.gradient} shadow-xl ${theme.glow} shadow-2xl flex flex-col items-center justify-center gap-5 px-8 py-10 text-center`}
+                  style={{
+                    backfaceVisibility: 'hidden',
+                    WebkitBackfaceVisibility: 'hidden',
+                    transform: 'rotateY(180deg)',
+                  }}
+                >
+                  <p className="text-white font-bold text-xl leading-snug">{card.back}</p>
                   {card.hint && (
-                    <div className="mt-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl w-full">
-                      <p className="text-xs text-amber-700 leading-relaxed">💡 {card.hint}</p>
+                    <div className="w-full bg-white/20 backdrop-blur-sm rounded-2xl px-5 py-3">
+                      <p className="text-white/90 text-sm leading-relaxed">
+                        <span className="font-bold">💡 </span>{card.hint}
+                      </p>
                     </div>
                   )}
-                </>
-              )}
-            </button>
+                </div>
+              </div>
+            </div>
 
-            {/* Action buttons — only show after flip */}
+            {/* Action buttons */}
             {flipped ? (
               <div className="grid grid-cols-2 gap-3">
                 <button
-                  onClick={handleStudyAgain}
-                  className="py-4 rounded-2xl border-2 border-red-200 bg-red-50 text-red-700 font-bold text-sm hover:bg-red-100 transition-colors active:scale-[0.98]"
+                  onClick={() => doAdvance('again')}
+                  disabled={transitioning}
+                  className="group flex flex-col items-center gap-1.5 py-4 rounded-2xl bg-white border-2 border-red-200 hover:border-red-400 hover:bg-red-50 transition-all active:scale-95 shadow-sm disabled:opacity-50"
                 >
-                  Study again
+                  <div className="flex items-center gap-2">
+                    <svg className="h-4 w-4 text-red-400 group-hover:text-red-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+                    </svg>
+                    <span className="font-bold text-sm text-red-500 group-hover:text-red-700">Study again</span>
+                  </div>
+                  <span className="text-xs text-stone-300 font-mono">← key</span>
                 </button>
                 <button
-                  onClick={handleKnew}
-                  className="py-4 rounded-2xl border-2 border-green-300 bg-green-50 text-green-700 font-bold text-sm hover:bg-green-100 transition-colors active:scale-[0.98]"
+                  onClick={() => doAdvance('knew')}
+                  disabled={transitioning}
+                  className={`group flex flex-col items-center gap-1.5 py-4 rounded-2xl bg-gradient-to-br ${theme.gradient} hover:opacity-90 transition-all active:scale-95 shadow-lg disabled:opacity-50`}
                 >
-                  I knew it ✓
+                  <div className="flex items-center gap-2">
+                    <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="font-bold text-sm text-white">Got it!</span>
+                  </div>
+                  <span className="text-xs text-white/50 font-mono">→ key</span>
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 opacity-30 pointer-events-none select-none">
-                <div className="py-4 rounded-2xl border-2 border-stone-200 bg-stone-50 text-stone-400 font-bold text-sm text-center">Study again</div>
-                <div className="py-4 rounded-2xl border-2 border-stone-200 bg-stone-50 text-stone-400 font-bold text-sm text-center">I knew it</div>
+              <div className="flex items-center justify-center gap-2 py-3 text-stone-300">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
+                </svg>
+                <span className="text-sm">Tap the card or press <kbd className="px-1.5 py-0.5 rounded bg-stone-100 text-stone-400 text-xs font-mono">Space</kbd> to flip</span>
               </div>
             )}
 
-            {/* Stats row */}
-            <div className="flex justify-center gap-6 text-xs text-stone-400">
-              <span>✓ Known: <strong className="text-green-600">{known.size}</strong></span>
-              <span>↩ Review: <strong className="text-red-500">{review.size}</strong></span>
-              <span>Remaining: <strong className="text-stone-600">{queue.length - currentPos}</strong></span>
+            {/* Mini stats */}
+            <div className="flex justify-center gap-5">
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-green-400" />
+                <span className="text-xs text-stone-500">Known <strong className="text-stone-700">{known.size}</strong></span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-red-300" />
+                <span className="text-xs text-stone-500">Review <strong className="text-stone-700">{review.size}</strong></span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-stone-300" />
+                <span className="text-xs text-stone-500">Left <strong className="text-stone-700">{queue.length - currentPos - 1}</strong></span>
+              </div>
             </div>
           </div>
         )}
 
+        {/* ── COMPLETE ── */}
         {phase === 'complete' && (
-          <div className="flex flex-col items-center gap-6 py-10 text-center max-w-sm mx-auto flex-1 justify-center">
-            <div className="text-6xl">🎉</div>
-            <div className="space-y-1">
-              <p className="text-sm text-stone-500">Cards mastered</p>
-              <p className="text-6xl font-bold text-green-600">{known.size}/{cards.length}</p>
+          <div className="flex-1 flex flex-col items-center justify-center gap-6 text-center px-2">
+            {/* Stars */}
+            <div className="flex gap-2">
+              {[1, 2, 3].map(s => (
+                <svg
+                  key={s}
+                  className={`h-10 w-10 transition-all ${s <= stars ? 'text-amber-400 scale-110' : 'text-stone-200'}`}
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+              ))}
             </div>
-            <p className="text-stone-600 text-sm leading-relaxed">
-              {known.size === cards.length
-                ? 'All cards mastered. That topic is solid — carry this confidence into the exam.'
-                : `You got ${known.size} out of ${cards.length}. The ones you reviewed are worth revisiting — that is how memory works.`}
-            </p>
-            <div className="w-full space-y-3 pt-2">
+
+            {/* Score */}
+            <div className={`w-36 h-36 rounded-full bg-gradient-to-br ${theme.gradient} flex flex-col items-center justify-center shadow-2xl ${theme.glow} shadow-xl`}>
+              <p className="text-4xl font-black text-white">{Math.round((known.size / cards.length) * 100)}%</p>
+              <p className="text-white/70 text-xs font-medium">mastered</p>
+            </div>
+
+            <div className="space-y-2">
+              <p className="font-black text-stone-900 text-xl">
+                {known.size === cards.length ? 'Perfect round!' : `${known.size} of ${cards.length} cards`}
+              </p>
+              <p className="text-stone-500 text-sm leading-relaxed max-w-xs mx-auto">
+                {known.size === cards.length
+                  ? 'Every card mastered. This topic is locked in — you\'re ready for the exam.'
+                  : known.size >= cards.length * 0.7
+                  ? 'Solid session. The few you missed will stick better next time — that\'s how memory works.'
+                  : 'Good start. These cards need a bit more repetition — try again and you\'ll see the difference.'}
+              </p>
+            </div>
+
+            <div className="w-full space-y-2.5 pt-1">
               <button
                 onClick={retry}
-                className="w-full py-3 bg-violet-600 text-white font-semibold rounded-xl hover:bg-violet-700 transition-colors"
+                className={`w-full py-4 rounded-2xl font-black text-white bg-gradient-to-r ${theme.gradient} shadow-lg active:scale-[0.98] transition-transform`}
               >
                 New set of cards
               </button>
               <Link
-                href={`/tutor/${subjectId}?grade=${encodeURIComponent(grade)}&confidence=mid${topic ? `&topic=${encodeURIComponent(topic)}` : ''}`}
-                className="block w-full py-3 border-2 border-violet-300 text-violet-600 font-semibold rounded-xl hover:bg-violet-50 transition-colors"
+                href={`/practice/${subjectId}?grade=${encodeURIComponent(grade)}&confidence=mid${topic ? `&topic=${encodeURIComponent(topic)}` : ''}`}
+                className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl border-2 border-stone-200 bg-white text-stone-700 font-semibold text-sm hover:border-stone-300 transition-colors"
               >
-                Ask the AI tutor about this
+                <span>📝</span> Test yourself with a quiz
+              </Link>
+              <Link
+                href={`/tutor/${subjectId}?grade=${encodeURIComponent(grade)}&confidence=mid${topic ? `&topic=${encodeURIComponent(topic)}` : ''}`}
+                className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl border-2 border-stone-200 bg-white text-stone-700 font-semibold text-sm hover:border-stone-300 transition-colors"
+              >
+                <span>💬</span> Ask the AI tutor
               </Link>
               <Link
                 href={`/subject/${subjectId}`}
