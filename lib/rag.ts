@@ -2,6 +2,7 @@ import { createServerClient } from '@/lib/supabase'
 import { embed } from '@/lib/embeddings'
 import { GradeLevel } from '@/types/subject'
 import { SyllabusChunk } from '@/types/syllabus'
+import { getCurrentYearBs } from '@/lib/yearConfig'
 
 // Lazily initialized so env vars are read at runtime, not at build time.
 // The singleton is reused across warm Vercel invocations.
@@ -21,11 +22,12 @@ export async function getSyllabusContext(
   query: string,
   grade: GradeLevel,
   subjectId: string,
-  yearBs: number = 2083,
+  yearBs?: number,
   topK: number = 3
 ): Promise<string> {
   try {
-    const cacheKey = `${subjectId}:${grade}:${yearBs}:${query.slice(0, 120)}`
+    const activeYear = yearBs ?? await getCurrentYearBs()
+    const cacheKey = `${subjectId}:${grade}:${activeYear}:${query.slice(0, 120)}`
     const cached = contextCache.get(cacheKey)
     if (cached !== undefined) return cached
 
@@ -36,7 +38,7 @@ export async function getSyllabusContext(
       query_embedding: embedding,
       match_grade: gradeNum,
       match_subject: subjectId,
-      match_year_bs: yearBs,
+      match_year_bs: activeYear,
       match_count: topK,
     })
 

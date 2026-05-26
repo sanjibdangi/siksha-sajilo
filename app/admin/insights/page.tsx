@@ -60,6 +60,8 @@ export default function InsightsPage() {
   const [gradeFilter, setGradeFilter] = useState('all')
   const [subjectFilter, setSubjectFilter] = useState('all')
   const [sortBy, setSortBy] = useState<'satisfaction' | 'total' | 'recent'>('satisfaction')
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analyzeResult, setAnalyzeResult] = useState<string | null>(null)
 
   useEffect(() => {
     const s = sessionStorage.getItem(ADMIN_SECRET_KEY)
@@ -78,6 +80,28 @@ export default function InsightsPage() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [adminSecret])
+
+  async function runAnalysis() {
+    if (!adminSecret || analyzing) return
+    setAnalyzing(true)
+    setAnalyzeResult(null)
+    try {
+      const res = await fetch('/api/sources/analyze', {
+        method: 'POST',
+        headers: { 'x-admin-secret': adminSecret },
+      })
+      const data = await res.json()
+      if (data.analyzed === 0) {
+        setAnalyzeResult(data.message ?? 'No topics need analysis right now.')
+      } else {
+        setAnalyzeResult(`Generated ${data.analyzed} teaching note${data.analyzed !== 1 ? 's' : ''}. Review them in AI Self-Improvement.`)
+      }
+    } catch {
+      setAnalyzeResult('Analysis failed. Check the console.')
+    } finally {
+      setAnalyzing(false)
+    }
+  }
 
   if (!adminSecret) {
     return (
@@ -124,12 +148,41 @@ export default function InsightsPage() {
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-8">
 
         {/* Page title */}
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Knowledge Gap Analysis</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Topics where students clicked &quot;Still confused&quot; — sorted by lowest satisfaction first.
-            Add better sources to the topics at the top.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Knowledge Gap Analysis</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Topics where students clicked &quot;Still confused&quot; — sorted by lowest satisfaction first.
+              Add better sources to the topics at the top.
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <button
+              onClick={runAnalysis}
+              disabled={analyzing}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors shadow-sm"
+            >
+              {analyzing ? (
+                <>
+                  <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Analyzing…
+                </>
+              ) : (
+                <>🧠 Analyze gaps</>
+              )}
+            </button>
+            {analyzeResult && (
+              <p className="text-xs text-gray-500 max-w-xs text-right">{analyzeResult}</p>
+            )}
+            {analyzeResult && analyzeResult.includes('teaching note') && (
+              <Link href="/admin/improve" className="text-xs text-purple-600 hover:underline">
+                Review in AI Self-Improvement →
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Summary cards */}

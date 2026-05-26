@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
+import { getCurrentYearBs } from '@/lib/yearConfig'
 
 export async function POST(req: Request) {
   const { subjectId, grade, topic, mode, rating } = await req.json()
@@ -8,7 +9,10 @@ export async function POST(req: Request) {
   }
 
   const supabase = createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const [{ data: { user } }, yearBs] = await Promise.all([
+    supabase.auth.getUser(),
+    getCurrentYearBs(),
+  ])
 
   await supabase.from('feedback').insert({
     user_id: user?.id ?? null,
@@ -17,6 +21,7 @@ export async function POST(req: Request) {
     topic: topic ?? null,
     mode,
     rating,
+    year_bs: yearBs,
   })
 
   return NextResponse.json({ ok: true })
@@ -28,9 +33,12 @@ export async function GET(req: Request) {
   }
 
   const supabase = createServerClient()
+  const activeYear = await getCurrentYearBs()
+
   const { data, error } = await supabase
     .from('feedback')
     .select('subject_id, grade, topic, mode, rating, created_at')
+    .eq('year_bs', activeYear)
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
