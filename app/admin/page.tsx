@@ -237,6 +237,21 @@ export default function AdminPage() {
                 </p>
               </div>
             </Link>
+
+            <Link
+              href="/admin/sources"
+              className="flex items-start gap-4 p-4 rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all group"
+            >
+              <span className="text-2xl">🗂️</span>
+              <div>
+                <p className="text-sm font-semibold text-gray-900 group-hover:text-indigo-700 transition-colors">
+                  Add knowledge source
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Upload PDF, Word, plain text or paste a YouTube URL to enrich the AI.
+                </p>
+              </div>
+            </Link>
           </div>
         </Card>
 
