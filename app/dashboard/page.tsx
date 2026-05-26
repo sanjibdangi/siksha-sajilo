@@ -95,10 +95,18 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div>
-          <p className="text-xs text-stone-400 font-semibold uppercase tracking-wider mb-4">
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-stone-400 font-semibold uppercase tracking-wider">
             {gradeLabel} · Pick a subject
           </p>
+          <Link
+            href="/dashboard/progress"
+            className="text-xs text-stone-400 hover:text-green-600 font-semibold transition-colors flex items-center gap-1"
+          >
+            📊 My progress
+          </Link>
+        </div>
+        <div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {SUBJECTS.map((subject) => {
               const accent = SUBJECT_ACCENTS[subject.id] ?? 'hover:border-green-300'

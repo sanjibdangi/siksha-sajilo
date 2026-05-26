@@ -20,6 +20,8 @@ const MODE_LABELS: Record<LearningMode, string> = {
   tutor:    'Start tutoring →',
   practice: 'Start quiz →',
   solve:    'Start solving →',
+  memorize: 'Start flashcards →',
+  write:    'Start writing →',
 }
 
 function StepHeader({ number, label, done }: { number: number; label: string; done: boolean }) {

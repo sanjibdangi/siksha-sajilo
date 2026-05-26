@@ -1,6 +1,6 @@
 export type GradeLevel = '9' | '10' | 'SEE Prep'
 export type ConfidenceLevel = 'low' | 'mid' | 'high'
-export type LearningMode = 'tutor' | 'practice' | 'solve'
+export type LearningMode = 'tutor' | 'practice' | 'solve' | 'memorize' | 'write'
 export type LanguagePreference = 'nepali' | 'english' | 'mix'
 
 export interface Subject {

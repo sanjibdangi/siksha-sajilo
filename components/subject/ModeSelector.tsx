@@ -35,6 +35,24 @@ const MODES = [
     titleSelected: 'text-blue-700',
     idle: 'border-stone-200 bg-white hover:border-stone-300',
   },
+  {
+    mode: 'memorize' as LearningMode,
+    icon: '🃏',
+    title: 'Flashcards',
+    desc: 'Flip through 10 cards. Lock key concepts into memory.',
+    selected: 'border-violet-400 bg-violet-50',
+    titleSelected: 'text-violet-700',
+    idle: 'border-stone-200 bg-white hover:border-stone-300',
+  },
+  {
+    mode: 'write' as LearningMode,
+    icon: '✍️',
+    title: 'Writing Assistant',
+    desc: 'Essays, letters, paragraphs — I teach structure and style.',
+    selected: 'border-emerald-400 bg-emerald-50',
+    titleSelected: 'text-emerald-700',
+    idle: 'border-stone-200 bg-white hover:border-stone-300',
+  },
 ] as const
 
 export function ModeSelector({ value, onChange }: ModeSelectorProps) {
@@ -59,7 +77,7 @@ export function ModeSelector({ value, onChange }: ModeSelectorProps) {
               <p className="text-xs text-stone-500 leading-snug mt-0.5">{m.desc}</p>
             </div>
             {isSelected && (
-              <span className="shrink-0 h-5 w-5 rounded-full bg-green-600 flex items-center justify-center">
+              <span className={`shrink-0 h-5 w-5 rounded-full flex items-center justify-center ${m.mode === 'memorize' ? 'bg-violet-600' : m.mode === 'write' ? 'bg-emerald-600' : 'bg-green-600'}`}>
                 <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
