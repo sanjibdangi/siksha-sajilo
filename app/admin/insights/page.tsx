@@ -40,33 +40,6 @@ interface Summary {
   lowRatedTopics: number
 }
 
-function SatisfactionBadge({ pct }: { pct: number }) {
-  if (pct < 50) return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
-      <span className="h-1.5 w-1.5 rounded-full bg-red-500 inline-block" />
-      {pct}% — Critical
-    </span>
-  )
-  if (pct < 70) return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
-      <span className="h-1.5 w-1.5 rounded-full bg-amber-500 inline-block" />
-      {pct}% — Needs work
-    </span>
-  )
-  if (pct < 85) return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
-      <span className="h-1.5 w-1.5 rounded-full bg-blue-500 inline-block" />
-      {pct}% — Good
-    </span>
-  )
-  return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
-      <span className="h-1.5 w-1.5 rounded-full bg-green-500 inline-block" />
-      {pct}% — Strong
-    </span>
-  )
-}
-
 function SatisfactionBar({ pct }: { pct: number }) {
   const color = pct < 50 ? 'bg-red-400' : pct < 70 ? 'bg-amber-400' : pct < 85 ? 'bg-blue-400' : 'bg-green-400'
   return (
