@@ -129,7 +129,9 @@ export async function POST(req: Request) {
         messages: [{ role: 'user', content: prompt }],
       })
 
-      const raw = (response.content[0] as { type: string; text: string }).text.trim()
+      const block = response.content[0]
+      if (!block || block.type !== 'text') throw new Error('Unexpected response format from Claude')
+      const raw = block.text.trim()
       const parsed = JSON.parse(raw) as { diagnosis: string; teaching_note: string }
 
       await supabase.from('pending_improvements').insert({

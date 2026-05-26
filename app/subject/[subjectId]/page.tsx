@@ -6,6 +6,7 @@ export const revalidate = 3600
 import { SUBJECTS } from '@/types/subject'
 import type { GradeLevel } from '@/types/subject'
 import { createServerClient } from '@/lib/supabase'
+import { getCurrentYearBs } from '@/lib/yearConfig'
 import { SubjectClient } from './SubjectClient'
 
 interface PageProps {
@@ -23,7 +24,7 @@ export default async function SubjectPage({ params, searchParams }: PageProps) {
   // Fetch available topics from Supabase; degrades gracefully if not configured
   let topics: string[] = []
   try {
-    const supabase = createServerClient()
+    const [supabase, yearBs] = [createServerClient(), await getCurrentYearBs()]
     const { data } = await supabase
       .from('syllabus')
       .select('topic')
@@ -31,7 +32,7 @@ export default async function SubjectPage({ params, searchParams }: PageProps) {
         grade: gradeNum,
         subject_id: params.subjectId,
         status: 'active',
-        year_bs: 2083,
+        year_bs: yearBs,
       })
     topics = Array.from(new Set((data ?? []).map((c: { topic: string }) => c.topic))).filter(Boolean)
   } catch {

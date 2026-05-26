@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
+import { getCurrentYearBs } from '@/lib/yearConfig'
 
 export async function POST(req: Request) {
   if (req.headers.get('x-admin-secret') !== process.env.ADMIN_SECRET) {
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
       grade,
       subject_id: subjectId,
       topic_tags: topicTags?.length ? topicTags : null,
-      year_bs: yearBs || 2082,
+      year_bs: yearBs || await getCurrentYearBs(),
       raw_content: rawContent,
       word_count: wordCount || null,
       status: 'active',
