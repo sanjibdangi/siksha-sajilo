@@ -47,29 +47,13 @@ export default function AdminPage() {
 
   async function loadUsageStats(adminSecret: string) {
     try {
-      // Fetch today's usage from daily_usage table
-      const supabase = createClient()
-      const today = new Date().toISOString().slice(0, 10)
-      const { data: usageRows } = await supabase
-        .from('daily_usage')
-        .select('count')
-        .eq('date', today)
-
-      // Fetch current limit from admin_config
-      const res = await fetch('/api/admin/config?key=daily_limit_trial', {
+      const res = await fetch('/api/admin/usage-stats', {
         headers: { 'x-admin-secret': adminSecret },
       })
-      const cfg = res.ok ? await res.json() : { value: '100' }
-      const limit = parseInt(cfg.value ?? '100')
-
-      const rows = usageRows ?? []
-      setUsageStats({
-        totalInteractions: rows.reduce((sum, r) => sum + r.count, 0),
-        uniqueUsers: rows.length,
-        usersAtLimit: rows.filter(r => r.count >= limit).length,
-        currentLimit: limit,
-      })
-      setLimitInput(String(limit))
+      if (!res.ok) return
+      const data = await res.json()
+      setUsageStats(data)
+      setLimitInput(String(data.currentLimit))
     } catch {
       // non-critical
     }
@@ -135,12 +119,11 @@ export default function AdminPage() {
   function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     if (!secret.trim()) return
-    // Store and verify via a real API call on first protected action.
-    // For now gate the UI locally — all real API calls send the header server-side.
     sessionStorage.setItem(ADMIN_SECRET_KEY, secret.trim())
     setSavedSecret(secret.trim())
     setAuthError('')
     loadStats()
+    loadUsageStats(secret.trim())
   }
 
   function handleLogout() {
