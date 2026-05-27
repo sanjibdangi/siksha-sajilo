@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
 import { SUBJECTS } from '@/types/subject'
 
 interface ProgressRow {
@@ -64,13 +63,9 @@ export default function ProgressPage() {
 
   useEffect(() => {
     async function load() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoading(false); return }
-
-      const res = await fetch(`/api/progress?userId=${user.id}`)
+      const res = await fetch('/api/progress')
       const json = await res.json()
-      if (!res.ok) { setError(json.error); setLoading(false); return }
+      if (!res.ok) { setError(json.error ?? 'Failed to load progress'); setLoading(false); return }
       setRows(json.progress ?? [])
       setLoading(false)
     }

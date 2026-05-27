@@ -9,6 +9,7 @@ import { QuickPrompts } from './QuickPrompts'
 import { TypingIndicator } from './TypingIndicator'
 import type { Subject, GradeLevel, ConfidenceLevel, LanguagePreference } from '@/types/subject'
 import { FeedbackWidget } from '@/components/feedback/FeedbackWidget'
+import { recordProgress } from '@/lib/recordProgress'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -31,6 +32,7 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
   const [streaming, setStreaming] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const hasRecordedRef = useRef(false)
   // Buffer incoming stream chunks between rAF ticks so React renders at most
   // once per animation frame (~60fps) instead of on every network chunk.
   const streamBufferRef = useRef('')
@@ -124,6 +126,10 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
     } finally {
       setStreaming(false)
       inputRef.current?.focus()
+      if (!hasRecordedRef.current) {
+        hasRecordedRef.current = true
+        recordProgress({ subjectId, topic, mode: 'tutor' })
+      }
     }
   }
 

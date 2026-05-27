@@ -5,6 +5,7 @@ import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import type { Subject, GradeLevel } from '@/types/subject'
 import type { PastPaperQuestion, PaperSection } from '@/types/quiz'
+import { recordProgress } from '@/lib/recordProgress'
 
 interface MockTestClientProps {
   subject: Subject
@@ -63,8 +64,12 @@ export function MockTestClient({ subject, subjectId, grade, yearBs }: MockTestCl
   const handleSubmit = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current)
     setTimeTaken(DURATION_SECONDS - timeLeft)
+    const mqqs = questions.filter(q => q.section === 'mcq')
+    const finalScore = mqqs.reduce((sum, q) => answers[q.id] !== null && answers[q.id] === q.correct ? sum + q.marks : sum, 0)
+    const finalTotal = mqqs.reduce((sum, q) => sum + q.marks, 0)
+    recordProgress({ subjectId, mode: 'practice', score: finalScore, total: finalTotal })
     setPhase('submitted')
-  }, [timeLeft])
+  }, [timeLeft, questions, answers, subjectId])
 
   function startExam() {
     setPhase('active')

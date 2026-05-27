@@ -4,8 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import type { Subject, GradeLevel, LanguagePreference } from '@/types/subject'
 import type { Flashcard } from '@/types/flashcard'
-import { createClient } from '@/lib/supabase'
 import { getTheme, getStars } from '@/lib/subjectTheme'
+import { recordProgress } from '@/lib/recordProgress'
 
 type Phase = 'loading' | 'error' | 'study' | 'complete'
 
@@ -15,14 +15,6 @@ interface MemorizeClientProps {
   grade: GradeLevel
   topic: string | null
   lang: LanguagePreference
-}
-
-function saveProgress(userId: string, subjectId: string, topic: string | null, known: number, total: number) {
-  fetch('/api/progress', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, subjectId, topic, mode: 'memorize', score: known, total }),
-  }).catch(() => {})
 }
 
 export function MemorizeClient({ subject, subjectId, grade, topic, lang }: MemorizeClientProps) {
@@ -111,12 +103,10 @@ export function MemorizeClient({ subject, subjectId, grade, topic, lang }: Memor
     }, 280)
   }
 
-  async function finishSession(knownCount: number, totalCount: number) {
+  function finishSession(knownCount: number, totalCount: number) {
     if (savedRef.current) return
     savedRef.current = true
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) saveProgress(user.id, subjectId, topic, knownCount, totalCount)
+    recordProgress({ subjectId, topic, mode: 'memorize', score: knownCount, total: totalCount })
   }
 
   // Keyboard shortcuts

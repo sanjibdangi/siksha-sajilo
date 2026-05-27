@@ -1,10 +1,20 @@
 import { anthropic } from '@/lib/anthropic'
 import { buildWriterPrompt } from '@/lib/prompts/writer'
+import { checkAndIncrementUsage } from '@/lib/checkUsage'
 import type { GradeLevel, ConfidenceLevel, Subject, LanguagePreference } from '@/types/subject'
+import { NextRequest } from 'next/server'
 
 export const maxDuration = 60
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const usage = await checkAndIncrementUsage(req)
+  if (!usage.allowed) {
+    return Response.json(
+      { error: `Daily limit reached (${usage.limit} messages/day). Come back tomorrow — consistency is how you ace the SEE.` },
+      { status: 429 }
+    )
+  }
+
   const { messages, subject, grade, confidence, lang } = await req.json()
 
   const system = buildWriterPrompt(

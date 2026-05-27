@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 const PROTECTED_PREFIXES = [
   '/dashboard', '/subject', '/tutor', '/practice', '/solve', '/papers', '/mock',
+  '/memorize', '/write',
 ]
 const AUTH_PAGES = ['/login', '/signup']
 

@@ -1,15 +1,35 @@
+import { createServerClient as createSSRClient } from '@supabase/ssr'
 import { createServerClient } from '@/lib/supabase'
 import { NextRequest } from 'next/server'
 
+async function getSessionUser(req: NextRequest) {
+  try {
+    const supabase = createSSRClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return req.cookies.getAll() },
+          setAll() {},
+        },
+      }
+    )
+    const { data: { user } } = await supabase.auth.getUser()
+    return user
+  } catch {
+    return null
+  }
+}
+
 export async function GET(req: NextRequest) {
-  const userId = req.nextUrl.searchParams.get('userId')
-  if (!userId) return Response.json({ error: 'userId required' }, { status: 400 })
+  const user = await getSessionUser(req)
+  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const supabase = createServerClient()
   const { data, error } = await supabase
     .from('progress')
     .select('*')
-    .eq('user_id', userId)
+    .eq('user_id', user.id)
     .order('session_at', { ascending: false })
     .limit(100)
 
@@ -18,16 +38,19 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json()
-  const { userId, subjectId, topic, mode, score, total, durationS } = body
+  const user = await getSessionUser(req)
+  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  if (!userId || !subjectId || !mode) {
-    return Response.json({ error: 'userId, subjectId, mode required' }, { status: 400 })
+  const body = await req.json()
+  const { subjectId, topic, mode, score, total, durationS } = body
+
+  if (!subjectId || !mode) {
+    return Response.json({ error: 'subjectId and mode required' }, { status: 400 })
   }
 
   const supabase = createServerClient()
   const { error } = await supabase.from('progress').insert({
-    user_id: userId,
+    user_id: user.id,
     subject_id: subjectId,
     topic: topic ?? null,
     mode,

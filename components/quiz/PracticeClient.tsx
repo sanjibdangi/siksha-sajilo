@@ -7,6 +7,7 @@ import { ScoreScreen } from './ScoreScreen'
 import type { Subject, GradeLevel, LanguagePreference } from '@/types/subject'
 import type { QuizQuestion } from '@/types/quiz'
 import { getTheme } from '@/lib/subjectTheme'
+import { recordProgress } from '@/lib/recordProgress'
 
 type Phase = 'loading' | 'error' | 'quiz' | 'complete'
 
@@ -59,6 +60,7 @@ export function PracticeClient({ subject, subjectId, grade, topic, lang }: Pract
 
   function handleNext() {
     if (currentIndex + 1 >= questions.length) {
+      recordProgress({ subjectId, topic, mode: 'practice', score, total: questions.length })
       setPhase('complete')
     } else {
       setCurrentIndex(i => i + 1)

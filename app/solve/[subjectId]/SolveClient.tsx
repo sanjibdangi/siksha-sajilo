@@ -7,6 +7,7 @@ import { TypingIndicator } from '@/components/tutor/TypingIndicator'
 import type { Subject, GradeLevel, ConfidenceLevel, LanguagePreference } from '@/types/subject'
 import { getTheme } from '@/lib/subjectTheme'
 import { FeedbackWidget } from '@/components/feedback/FeedbackWidget'
+import { recordProgress } from '@/lib/recordProgress'
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_IMAGE_MB = 20
@@ -72,6 +73,7 @@ export function SolveClient({ subject, subjectId, grade, confidence, lang }: Sol
   const followUpRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const hasRecordedRef = useRef(false)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -168,6 +170,10 @@ export function SolveClient({ subject, subjectId, grade, confidence, lang }: Sol
       setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: 'assistant', content: msg }; return u })
     } finally {
       setStreaming(false)
+      if (!hasRecordedRef.current) {
+        hasRecordedRef.current = true
+        recordProgress({ subjectId, mode: 'solve' })
+      }
     }
   }
 

@@ -18,20 +18,88 @@ interface Stats {
   byGrade: Record<number, number>
 }
 
+interface UsageStats {
+  totalInteractions: number
+  uniqueUsers: number
+  usersAtLimit: number
+  currentLimit: number
+}
+
 export default function AdminPage() {
   const [secret, setSecret] = useState('')
   const [savedSecret, setSavedSecret] = useState<string | null>(null)
   const [authError, setAuthError] = useState('')
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(false)
+  const [usageStats, setUsageStats] = useState<UsageStats | null>(null)
+  const [limitInput, setLimitInput] = useState('')
+  const [limitSaving, setLimitSaving] = useState(false)
+  const [limitMsg, setLimitMsg] = useState('')
 
   useEffect(() => {
     const stored = sessionStorage.getItem(ADMIN_SECRET_KEY)
     if (stored) {
       setSavedSecret(stored)
       loadStats()
+      loadUsageStats(stored)
     }
   }, [])
+
+  async function loadUsageStats(adminSecret: string) {
+    try {
+      // Fetch today's usage from daily_usage table
+      const supabase = createClient()
+      const today = new Date().toISOString().slice(0, 10)
+      const { data: usageRows } = await supabase
+        .from('daily_usage')
+        .select('count')
+        .eq('date', today)
+
+      // Fetch current limit from admin_config
+      const res = await fetch('/api/admin/config?key=daily_limit_trial', {
+        headers: { 'x-admin-secret': adminSecret },
+      })
+      const cfg = res.ok ? await res.json() : { value: '100' }
+      const limit = parseInt(cfg.value ?? '100')
+
+      const rows = usageRows ?? []
+      setUsageStats({
+        totalInteractions: rows.reduce((sum, r) => sum + r.count, 0),
+        uniqueUsers: rows.length,
+        usersAtLimit: rows.filter(r => r.count >= limit).length,
+        currentLimit: limit,
+      })
+      setLimitInput(String(limit))
+    } catch {
+      // non-critical
+    }
+  }
+
+  async function saveLimit() {
+    if (!savedSecret) return
+    const num = parseInt(limitInput)
+    if (!num || num < 1 || num > 10000) {
+      setLimitMsg('Enter a number between 1 and 10000.')
+      return
+    }
+    setLimitSaving(true)
+    setLimitMsg('')
+    try {
+      const res = await fetch('/api/admin/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-secret': savedSecret },
+        body: JSON.stringify({ key: 'daily_limit_trial', value: num }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setLimitMsg(json.error ?? 'Failed to save.'); return }
+      setLimitMsg(`Saved. New limit: ${num} messages/day.`)
+      setUsageStats(prev => prev ? { ...prev, currentLimit: num } : prev)
+    } catch {
+      setLimitMsg('Network error. Try again.')
+    } finally {
+      setLimitSaving(false)
+    }
+  }
 
   async function loadStats() {
     setLoading(true)
@@ -267,6 +335,68 @@ export default function AdminPage() {
                 </p>
               </div>
             </Link>
+          </div>
+        </Card>
+
+        {/* Usage limits */}
+        <Card padding="md" className="space-y-5">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-700">Daily usage limit</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Controls how many AI messages (tutor, solve, write) each student can send per day.
+              Quiz and flashcard are cached and not counted.
+            </p>
+          </div>
+
+          {/* Today's stats */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Total messages today', value: usageStats?.totalInteractions ?? '—' },
+              { label: 'Active students today', value: usageStats?.uniqueUsers ?? '—' },
+              { label: 'Students at limit', value: usageStats?.usersAtLimit ?? '—' },
+            ].map(s => (
+              <div key={s.label} className="bg-gray-50 rounded-lg px-3 py-3 text-center">
+                <p className="text-xl font-bold text-gray-900">{s.value}</p>
+                <p className="text-xs text-gray-400 mt-0.5 leading-tight">{s.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Limit control */}
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <label className="text-xs font-medium text-gray-600 block mb-1.5">
+                Messages per day (current: <strong>{usageStats?.currentLimit ?? '…'}</strong>)
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={10000}
+                value={limitInput}
+                onChange={e => { setLimitInput(e.target.value); setLimitMsg('') }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="e.g. 100"
+              />
+            </div>
+            <Button
+              onClick={saveLimit}
+              disabled={limitSaving || !limitInput}
+              size="sm"
+            >
+              {limitSaving ? 'Saving…' : 'Update'}
+            </Button>
+          </div>
+
+          {limitMsg && (
+            <p className={`text-xs font-medium ${limitMsg.startsWith('Saved') ? 'text-green-600' : 'text-red-600'}`}>
+              {limitMsg}
+            </p>
+          )}
+
+          <div className="text-xs text-gray-400 border-t border-gray-100 pt-3 space-y-0.5">
+            <p>• Set higher (200+) during low-activity periods to encourage usage.</p>
+            <p>• Lower (50–80) during exam season if costs spike.</p>
+            <p>• Change takes effect immediately — no redeploy needed.</p>
           </div>
         </Card>
 

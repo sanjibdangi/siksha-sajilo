@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { MessageBubble } from '@/components/tutor/MessageBubble'
 import { TypingIndicator } from '@/components/tutor/TypingIndicator'
 import type { Subject, GradeLevel, ConfidenceLevel, LanguagePreference } from '@/types/subject'
+import { recordProgress } from '@/lib/recordProgress'
 
 const WRITING_TYPES = [
   { id: 'essay', label: 'Essay' },
@@ -38,6 +39,7 @@ export function WriteClient({ subject, subjectId, grade, confidence, topic, lang
   const [streaming, setStreaming] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const followUpRef = useRef<HTMLTextAreaElement>(null)
+  const hasRecordedRef = useRef(false)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -85,6 +87,10 @@ export function WriteClient({ subject, subjectId, grade, confidence, topic, lang
       })
     } finally {
       setStreaming(false)
+      if (!hasRecordedRef.current) {
+        hasRecordedRef.current = true
+        recordProgress({ subjectId, topic, mode: 'write' })
+      }
     }
   }
 
