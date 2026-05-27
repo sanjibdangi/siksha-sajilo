@@ -195,7 +195,7 @@ export default function PastPaperPage() {
       <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
         <h2 className="text-sm font-semibold text-blue-900 mb-2">Why past papers are the strongest knowledge source</h2>
         <ul className="text-sm text-blue-800 space-y-1">
-          <li>The AI can reference exact questions: <em>"This appeared in the 2079 SEE exam for 4 marks"</em></li>
+          <li>The AI can reference exact questions: <em>&quot;This appeared in the 2079 SEE exam for 4 marks&quot;</em></li>
           <li>Students see the actual exam format, not AI-guessed examples</li>
           <li>Pattern analysis across years shows what topics are tested every year</li>
           <li>Marking scheme content tells the AI exactly what answer format scores full marks</li>
