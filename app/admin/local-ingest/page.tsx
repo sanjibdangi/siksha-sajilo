@@ -18,21 +18,22 @@ const SUBJECTS = [
   { id: 'social', label: 'Social Studies' },
   { id: 'optmath', label: 'Optional Mathematics' },
 ] as const
-const TYPES = [
+const FILE_TYPES = [
   { id: 'notes', label: 'Notes' },
   { id: 'past_paper', label: 'Past Paper' },
   { id: 'model_question', label: 'Model Question' },
   { id: 'textbook', label: 'Textbook' },
   { id: 'article', label: 'Article' },
-  { id: 'youtube_transcript', label: 'YouTube Transcript' },
 ] as const
 
-const LOCAL_TYPES = new Set(['notes', 'past_paper', 'model_question', 'textbook', 'article',
-  'youtube_transcript', 'local_pdf', 'local_docx', 'local_pptx', 'local_image', 'local_spreadsheet'])
+const LOCAL_TYPES = new Set([
+  'notes', 'past_paper', 'model_question', 'textbook', 'article',
+  'youtube_transcript', 'local_pdf', 'local_docx', 'local_pptx',
+  'local_image', 'local_spreadsheet',
+])
 
-function detectInputType(input: string): string {
+function detectFileType(input: string): string {
   const lower = input.toLowerCase()
-  if (lower.includes('youtube.com') || lower.includes('youtu.be')) return 'youtube_transcript'
   if (lower.endsWith('.pdf')) return 'local_pdf'
   if (lower.endsWith('.docx') || lower.endsWith('.doc')) return 'local_docx'
   if (lower.endsWith('.pptx') || lower.endsWith('.ppt')) return 'local_pptx'
@@ -53,7 +54,7 @@ interface RecentItem {
   source_url?: string
 }
 
-const TABS = ['generator', 'setup', 'history'] as const
+const TABS = ['files', 'youtube', 'setup', 'history'] as const
 type Tab = typeof TABS[number]
 
 export default function LocalIngestPage() {
@@ -61,17 +62,26 @@ export default function LocalIngestPage() {
     typeof window !== 'undefined' ? sessionStorage.getItem(ADMIN_SECRET_KEY) ?? '' : ''
   )
 
-  const [tab, setTab] = useState<Tab>('generator')
+  const [tab, setTab] = useState<Tab>('youtube')
 
-  // Form fields
-  const [input, setInput] = useState('')
-  const [grade, setGrade] = useState<string>('10')
-  const [subject, setSubject] = useState<string>('mathematics')
-  const [type, setType] = useState<string>('notes')
+  // Shared fields
+  const [grade, setGrade] = useState('10')
+  const [subject, setSubject] = useState('mathematics')
   const [title, setTitle] = useState('')
   const [year, setYear] = useState('')
-  const [dryRun, setDryRun] = useState(false)
-  const [copied, setCopied] = useState(false)
+
+  // Files & Web tab
+  const [fileInput, setFileInput] = useState('')
+  const [fileType, setFileType] = useState('notes')
+  const [fileDryRun, setFileDryRun] = useState(false)
+  const [fileCopied, setFileCopied] = useState(false)
+
+  // YouTube Audio tab
+  const [ytUrl, setYtUrl] = useState('')
+  const [ytLanguage, setYtLanguage] = useState('')
+  const [ytDryRun, setYtDryRun] = useState(false)
+  const [ytKeepAudio, setYtKeepAudio] = useState(false)
+  const [ytCopied, setYtCopied] = useState(false)
 
   // History
   const [history, setHistory] = useState<RecentItem[]>([])
@@ -86,7 +96,7 @@ export default function LocalIngestPage() {
         .select('id, title, source_type, grade, subject_id, word_count, status, created_at, source_url')
         .in('source_type', Array.from(LOCAL_TYPES))
         .order('created_at', { ascending: false })
-        .limit(30)
+        .limit(40)
       setHistory(data ?? [])
     } catch { /* non-fatal */ }
     finally { setHistLoading(false) }
@@ -94,38 +104,47 @@ export default function LocalIngestPage() {
 
   useEffect(() => { loadHistory() }, [loadHistory])
 
-  // Auto-detect type from input
+  // Auto-detect file type when input changes
   useEffect(() => {
-    if (!input) return
-    const detected = detectInputType(input)
-    if (detected !== 'article') setType(detected)
-    // Auto-suggest title from YouTube URL
-    if ((input.includes('youtube.com') || input.includes('youtu.be')) && !title) {
-      setTitle('YouTube: ')
-    }
-  }, [input, title])
+    if (!fileInput) return
+    const detected = detectFileType(fileInput)
+    if (detected !== 'article') setFileType(detected)
+  }, [fileInput])
 
-  function buildCommand(): string {
-    const scriptPath = 'scripts/markitdown_ingest.py'
+  function buildFileCommand(): string {
     const parts = [
-      `python ${scriptPath}`,
-      `  --input "${input || '<URL or /path/to/file>'}"`,
+      'python scripts/markitdown_ingest.py',
+      `  --input "${fileInput || '<URL or /path/to/file>'}"`,
       `  --grade "${grade}"`,
       `  --subject ${subject}`,
-      `  --type ${type}`,
+      `  --type ${fileType}`,
       `  --title "${title || '<Title here>'}"`,
     ]
     if (year) parts.push(`  --year ${year}`)
-    if (dryRun) parts.push('  --dry-run')
+    if (fileDryRun) parts.push('  --dry-run')
     return parts.join(' \\\n')
   }
 
-  async function copyCommand() {
-    try {
-      await navigator.clipboard.writeText(buildCommand())
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch { /* fallback: select text */ }
+  function buildYtCommand(): string {
+    const parts = [
+      'python scripts/youtube_ingest.py',
+      `  --input "${ytUrl || '<YouTube URL>'}"`,
+      `  --grade "${grade}"`,
+      `  --subject ${subject}`,
+      `  --title "${title || '<Title here>'}"`,
+    ]
+    if (year) parts.push(`  --year ${year}`)
+    if (ytLanguage) parts.push(`  --language ${ytLanguage}`)
+    if (ytDryRun) parts.push('  --dry-run')
+    if (ytKeepAudio) parts.push('  --keep-audio')
+    return parts.join(' \\\n')
+  }
+
+  async function copyFile() {
+    try { await navigator.clipboard.writeText(buildFileCommand()); setFileCopied(true); setTimeout(() => setFileCopied(false), 2000) } catch { /* */ }
+  }
+  async function copyYt() {
+    try { await navigator.clipboard.writeText(buildYtCommand()); setYtCopied(true); setTimeout(() => setYtCopied(false), 2000) } catch { /* */ }
   }
 
   if (!secret) {
@@ -139,196 +158,243 @@ export default function LocalIngestPage() {
     )
   }
 
+  const tabLabel: Record<Tab, string> = {
+    files: 'Files & Web',
+    youtube: 'YouTube Audio',
+    setup: 'Setup',
+    history: 'History',
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center gap-3">
-          <Link href="/admin" className="text-sm text-gray-400 hover:text-gray-600 transition-colors">← Admin</Link>
+          <Link href="/admin" className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
+            &larr; Admin
+          </Link>
           <span className="text-gray-300">|</span>
-          <span className="font-bold text-green-700">MarkItDown — Local Ingest</span>
+          <span className="font-bold text-green-700">Local Ingest</span>
         </div>
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Local MarkItDown Ingest</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Convert files and URLs to knowledge — free, no AI key needed. Run the generated command on your machine.
-            </p>
-          </div>
-          <a
-            href="https://github.com/microsoft/markitdown"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 text-xs text-gray-400 hover:text-gray-600 underline"
-          >
-            GitHub
-          </a>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Local Ingest Tools</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Convert external content into RAG knowledge. Run commands locally — results upload to Supabase automatically.
+          </p>
         </div>
 
-        {/* What it supports */}
+        {/* Capability chips */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {[
-            { icon: '▶️', label: 'YouTube', note: 'If captions on' },
-            { icon: '📄', label: 'PDF / DOCX', note: 'Any local file' },
-            { icon: '📊', label: 'PPTX / XLSX', note: 'Presentations, sheets' },
-            { icon: '🌐', label: 'Web URLs', note: 'HTML pages' },
+            { icon: '▶️', label: 'YouTube Audio', note: 'Even no-transcript videos', highlight: true },
+            { icon: '📄', label: 'PDF / DOCX', note: 'Any local file — free' },
+            { icon: '📊', label: 'PPTX / XLSX', note: 'Slides & spreadsheets' },
+            { icon: '🌐', label: 'Web pages', note: 'Any URL — free' },
           ].map(f => (
-            <div key={f.label} className="bg-white border border-gray-200 rounded-lg p-3 text-center">
+            <div
+              key={f.label}
+              className={`border rounded-lg p-3 text-center ${f.highlight ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'}`}
+            >
               <div className="text-xl">{f.icon}</div>
-              <div className="text-xs font-semibold text-gray-800 mt-1">{f.label}</div>
-              <div className="text-xs text-gray-400">{f.note}</div>
+              <div className={`text-xs font-semibold mt-1 ${f.highlight ? 'text-red-800' : 'text-gray-800'}`}>{f.label}</div>
+              <div className={`text-xs mt-0.5 ${f.highlight ? 'text-red-600' : 'text-gray-400'}`}>{f.note}</div>
             </div>
           ))}
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200">
+        <div className="flex border-b border-gray-200 overflow-x-auto">
           {TABS.map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
+              className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${
                 tab === t
-                  ? 'border-green-600 text-green-700'
+                  ? t === 'youtube' ? 'border-red-500 text-red-700' : 'border-green-600 text-green-700'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              {t === 'generator' ? 'Command Generator' : t === 'setup' ? 'Setup' : 'History'}
+              {tabLabel[t]}
+              {t === 'youtube' && (
+                <span className="ml-1.5 text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full">new</span>
+              )}
             </button>
           ))}
         </div>
 
-        {/* ── Tab: Command Generator ── */}
-        {tab === 'generator' && (
-          <div className="space-y-5">
-            <Card padding="md" className="space-y-4">
-              <h2 className="text-sm font-semibold text-gray-700">Build your ingest command</h2>
-
-              <div className="space-y-3">
-                {/* Input */}
-                <div>
-                  <label className="text-xs font-medium text-gray-600 block mb-1">
-                    URL or file path <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={e => setInput(e.target.value)}
-                    placeholder="https://youtube.com/watch?v=... or /Users/you/paper.pdf"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    YouTube URL, web page URL, or absolute local file path (PDF, DOCX, PPTX, XLSX, image)
-                  </p>
-                </div>
-
-                {/* Title */}
-                <div>
-                  <label className="text-xs font-medium text-gray-600 block mb-1">
-                    Title <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={e => setTitle(e.target.value)}
-                    placeholder="e.g. Class 10 Science — Electricity Notes"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
-                </div>
-
-                {/* Grade + Subject + Type row */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600 block mb-1">Grade</label>
-                    <select
-                      value={grade}
-                      onChange={e => setGrade(e.target.value)}
-                      className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                    >
-                      {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600 block mb-1">Subject</label>
-                    <select
-                      value={subject}
-                      onChange={e => setSubject(e.target.value)}
-                      className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                    >
-                      {SUBJECTS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600 block mb-1">Type</label>
-                    <select
-                      value={type}
-                      onChange={e => setType(e.target.value)}
-                      className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                    >
-                      {TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Year + Dry run row */}
-                <div className="flex items-end gap-4">
-                  <div className="w-32">
-                    <label className="text-xs font-medium text-gray-600 block mb-1">BS Year (optional)</label>
-                    <input
-                      type="number"
-                      value={year}
-                      onChange={e => setYear(e.target.value)}
-                      placeholder="2079"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                    />
-                  </div>
-                  <label className="flex items-center gap-2 cursor-pointer pb-2">
-                    <input
-                      type="checkbox"
-                      checked={dryRun}
-                      onChange={e => setDryRun(e.target.checked)}
-                      className="rounded"
-                    />
-                    <span className="text-sm text-gray-600">Dry run (preview only, no DB insert)</span>
-                  </label>
-                </div>
+        {/* ── Shared grade/subject/title/year fields ── */}
+        {(tab === 'files' || tab === 'youtube') && (
+          <Card padding="md" className="space-y-3">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Content metadata</p>
+            <div>
+              <label className="text-xs font-medium text-gray-600 block mb-1">
+                Title <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder={tab === 'youtube' ? 'e.g. SEE Maths Model Questions Solution 2082' : 'e.g. Class 10 Science — Electricity Notes'}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Grade</label>
+                <select value={grade} onChange={e => setGrade(e.target.value)}
+                  className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                  {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
               </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">Subject</label>
+                <select value={subject} onChange={e => setSubject(e.target.value)}
+                  className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                  {SUBJECTS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">BS Year (opt.)</label>
+                <input type="number" value={year} onChange={e => setYear(e.target.value)}
+                  placeholder="2082"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+              </div>
+            </div>
+          </Card>
+        )}
 
-              {/* Generated command */}
+        {/* ── Tab: Files & Web ── */}
+        {tab === 'files' && (
+          <div className="space-y-4">
+            <Card padding="md" className="space-y-4">
+              <h2 className="text-sm font-semibold text-gray-700">File / URL input</h2>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">
+                  URL or absolute file path <span className="text-red-500">*</span>
+                </label>
+                <input type="text" value={fileInput} onChange={e => setFileInput(e.target.value)}
+                  placeholder="/Users/you/see-2079-math.pdf  or  https://example.com/notes"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+                <p className="text-xs text-gray-400 mt-0.5">PDF, DOCX, PPTX, XLSX, image, or any web URL. Free — no AI key used.</p>
+              </div>
+              <div className="flex items-end gap-4">
+                <div className="w-40">
+                  <label className="text-xs font-medium text-gray-600 block mb-1">Content type</label>
+                  <select value={fileType} onChange={e => setFileType(e.target.value)}
+                    className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                    {FILE_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                  </select>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer pb-2">
+                  <input type="checkbox" checked={fileDryRun} onChange={e => setFileDryRun(e.target.checked)} className="rounded" />
+                  <span className="text-sm text-gray-600">Dry run</span>
+                </label>
+              </div>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-medium text-gray-600">Generated command</label>
-                  <button
-                    onClick={copyCommand}
-                    className="text-xs text-green-600 hover:text-green-800 font-medium transition-colors"
-                  >
-                    {copied ? 'Copied!' : 'Copy'}
+                  <button onClick={copyFile} className="text-xs text-green-600 hover:text-green-800 font-medium">
+                    {fileCopied ? 'Copied!' : 'Copy'}
                   </button>
                 </div>
                 <pre className="bg-gray-900 text-green-400 text-xs rounded-lg p-4 overflow-x-auto font-mono whitespace-pre">
-                  {buildCommand()}
+                  {buildFileCommand()}
+                </pre>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* ── Tab: YouTube Audio ── */}
+        {tab === 'youtube' && (
+          <div className="space-y-4">
+            {/* How it works */}
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-2">
+              <p className="text-sm font-semibold text-red-800">How this works</p>
+              <div className="flex items-start gap-3 text-xs text-red-700">
+                {['yt-dlp downloads the audio as MP3 (bypasses transcript restrictions)',
+                  'OpenAI Whisper API transcribes speech — handles Nepali + English mix',
+                  'Claude Haiku formats the raw transcript: fixes math notation, adds structure, removes fillers',
+                  'Voyage embeds the cleaned text and saves to Supabase knowledge_sources'].map((s, i) => (
+                  <div key={i} className="flex items-start gap-2 flex-1 min-w-0">
+                    <span className="shrink-0 w-5 h-5 rounded-full bg-red-200 text-red-800 font-bold text-xs flex items-center justify-center">{i + 1}</span>
+                    <span>{s}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-red-600 mt-1">
+                Cost: ~$0.006/min Whisper + ~$0.01 Haiku cleanup = <strong>~$0.07 per 10-min video</strong>
+              </p>
+            </div>
+
+            <Card padding="md" className="space-y-4">
+              <h2 className="text-sm font-semibold text-gray-700">YouTube URL</h2>
+              <div>
+                <label className="text-xs font-medium text-gray-600 block mb-1">
+                  YouTube URL <span className="text-red-500">*</span>
+                </label>
+                <input type="text" value={ytUrl} onChange={e => setYtUrl(e.target.value)}
+                  placeholder="https://youtu.be/... or https://www.youtube.com/watch?v=..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400" />
+              </div>
+
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="w-44">
+                  <label className="text-xs font-medium text-gray-600 block mb-1">
+                    Language hint <span className="text-gray-400">(optional)</span>
+                  </label>
+                  <select value={ytLanguage} onChange={e => setYtLanguage(e.target.value)}
+                    className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400">
+                    <option value="">Auto-detect (recommended)</option>
+                    <option value="ne">ne — Nepali</option>
+                    <option value="en">en — English</option>
+                    <option value="hi">hi — Hindi</option>
+                  </select>
+                  <p className="text-xs text-gray-400 mt-0.5">Auto-detect handles Nepali+English mix best</p>
+                </div>
+                <div className="flex flex-col gap-2 pb-1">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={ytDryRun} onChange={e => setYtDryRun(e.target.checked)} className="rounded" />
+                    <span className="text-sm text-gray-600">Dry run (preview, no DB insert)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={ytKeepAudio} onChange={e => setYtKeepAudio(e.target.checked)} className="rounded" />
+                    <span className="text-sm text-gray-600">Keep downloaded MP3 file</span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-medium text-gray-600">Generated command</label>
+                  <button onClick={copyYt} className="text-xs text-red-600 hover:text-red-800 font-medium">
+                    {ytCopied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+                <pre className="bg-gray-900 text-red-400 text-xs rounded-lg p-4 overflow-x-auto font-mono whitespace-pre">
+                  {buildYtCommand()}
                 </pre>
               </div>
 
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-xs text-green-800 space-y-1">
-                <p className="font-medium">How to run:</p>
-                <p>1. Open a terminal in the <code className="bg-green-100 px-1 rounded">siksha-sajilo/</code> project root.</p>
-                <p>2. Make sure Python setup is done (see Setup tab).</p>
-                <p>3. Paste and run the command above.</p>
-                <p>4. When done, come back here and click Refresh in History tab.</p>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-gray-700 space-y-1">
+                <p className="font-medium text-gray-800">How to run:</p>
+                <p>1. Ensure setup is done — see <button onClick={() => setTab('setup')} className="text-green-600 underline">Setup tab</button></p>
+                <p>2. Open terminal in project root, activate your venv</p>
+                <p>3. Paste and run the command — it will print progress live</p>
+                <p>4. Come back and refresh <button onClick={() => setTab('history')} className="text-green-600 underline">History</button> to confirm ingestion</p>
               </div>
             </Card>
 
-            {/* YouTube note */}
-            {(input.includes('youtube') || type === 'youtube_transcript') && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
-                <p className="font-medium mb-1">YouTube note</p>
-                <p>MarkItDown uses <code className="bg-amber-100 px-1 rounded">youtube-transcript-api</code> — this works only when the channel has captions/transcripts enabled. If the video has disabled transcripts, the conversion will fail (same limitation as before). For those videos, use the AI Knowledge Generator instead.</p>
-              </div>
-            )}
+            {/* Required env note */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 space-y-1">
+              <p className="font-semibold">Required in .env.local for YouTube Audio:</p>
+              <p><code className="bg-amber-100 px-1 rounded">OPENAI_API_KEY</code> — Whisper transcription API (~$0.006/min)</p>
+              <p><code className="bg-amber-100 px-1 rounded">ANTHROPIC_API_KEY</code> — Claude Haiku cleanup (you already have this)</p>
+              <p><code className="bg-amber-100 px-1 rounded">ffmpeg</code> — system install: <code className="bg-amber-100 px-1 rounded">winget install ffmpeg</code></p>
+            </div>
           </div>
         )}
 
@@ -337,9 +403,7 @@ export default function LocalIngestPage() {
           <div className="space-y-4">
             <Card padding="md" className="space-y-4">
               <h2 className="text-sm font-semibold text-gray-700">One-time setup</h2>
-              <p className="text-sm text-gray-600">Run these steps once in the project root. After that, just use the Command Generator tab.</p>
-
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {[
                   {
                     step: '1',
@@ -349,27 +413,33 @@ export default function LocalIngestPage() {
                   },
                   {
                     step: '2',
-                    title: 'Create a virtual environment (recommended)',
+                    title: 'Create a virtual environment',
                     code: 'python -m venv .venv\nsource .venv/bin/activate  # Mac/Linux\n.venv\\Scripts\\activate    # Windows',
-                    note: 'Keeps dependencies isolated from your global Python.',
+                    note: 'Keeps script dependencies isolated.',
                   },
                   {
                     step: '3',
-                    title: 'Install all dependencies',
+                    title: 'Install Python dependencies',
                     code: 'pip install -r scripts/requirements.txt',
-                    note: 'Installs MarkItDown (all formats), supabase-py, voyageai, python-dotenv. Takes ~1 min.',
+                    note: 'Installs MarkItDown, yt-dlp, openai, anthropic, supabase-py, voyageai, pydub.',
                   },
                   {
                     step: '4',
-                    title: 'Verify the script works',
-                    code: 'python scripts/markitdown_ingest.py --help',
-                    note: 'Should print the usage guide with no errors.',
+                    title: 'Install ffmpeg (required for YouTube Audio)',
+                    code: 'winget install ffmpeg          # Windows\nbrew install ffmpeg            # Mac\nsudo apt install ffmpeg        # Ubuntu/Debian',
+                    note: 'yt-dlp needs ffmpeg to convert audio to MP3.',
                   },
                   {
                     step: '5',
+                    title: 'Add OPENAI_API_KEY to .env.local',
+                    code: 'OPENAI_API_KEY=sk-...',
+                    note: 'Get one at platform.openai.com — fund with $5, a 10-min video costs ~$0.07.',
+                  },
+                  {
+                    step: '6',
                     title: 'Test with a dry run',
-                    code: 'python scripts/markitdown_ingest.py \\\n  --input "https://en.wikipedia.org/wiki/Nepal" \\\n  --grade 10 --subject social \\\n  --type article --title "Test" \\\n  --dry-run',
-                    note: 'Prints extracted markdown without inserting into DB.',
+                    code: 'python scripts/youtube_ingest.py \\\n  --input "https://youtu.be/<any-video>" \\\n  --grade 10 --subject mathematics \\\n  --title "Test" --dry-run',
+                    note: 'Downloads audio, transcribes, cleans — prints output without inserting to DB.',
                   },
                 ].map(s => (
                   <div key={s.step} className="flex gap-3">
@@ -385,31 +455,22 @@ export default function LocalIngestPage() {
             </Card>
 
             <Card padding="md" className="space-y-3">
-              <h2 className="text-sm font-semibold text-gray-700">Required env vars</h2>
-              <p className="text-xs text-gray-500">The script reads from <code className="bg-gray-100 px-1 rounded">.env.local</code> automatically.</p>
+              <h2 className="text-sm font-semibold text-gray-700">All required env vars</h2>
               <div className="space-y-2">
                 {[
-                  { key: 'NEXT_PUBLIC_SUPABASE_URL', required: true, note: 'Your Supabase project URL' },
-                  { key: 'SUPABASE_SERVICE_ROLE_KEY', required: true, note: 'Service role key — for writing to knowledge_sources' },
-                  { key: 'VOYAGE_API_KEY', required: false, note: 'For embedding generation. Without it, items are stored but RAG similarity search won\'t rank them.' },
+                  { key: 'NEXT_PUBLIC_SUPABASE_URL', req: true, note: 'Supabase project URL' },
+                  { key: 'SUPABASE_SERVICE_ROLE_KEY', req: true, note: 'For writing to knowledge_sources' },
+                  { key: 'OPENAI_API_KEY', req: true, note: 'For Whisper API (YouTube Audio only)' },
+                  { key: 'ANTHROPIC_API_KEY', req: false, note: 'For Haiku cleanup (recommended — you already have this)' },
+                  { key: 'VOYAGE_API_KEY', req: false, note: 'For embedding — without it RAG won\'t rank this item' },
                 ].map(v => (
-                  <div key={v.key} className="flex items-start gap-2 text-xs">
+                  <div key={v.key} className="flex items-start gap-2 text-xs flex-wrap">
                     <code className="bg-gray-100 px-1.5 py-0.5 rounded font-mono text-gray-800 shrink-0">{v.key}</code>
-                    <Badge variant={v.required ? 'error' : 'info'} className="shrink-0">{v.required ? 'required' : 'recommended'}</Badge>
+                    <Badge variant={v.req ? 'error' : 'info'} className="shrink-0">{v.req ? 'required' : 'recommended'}</Badge>
                     <span className="text-gray-500">{v.note}</span>
                   </div>
                 ))}
               </div>
-            </Card>
-
-            <Card padding="md" className="space-y-3 bg-blue-50 border-blue-200">
-              <h2 className="text-sm font-semibold text-blue-800">What happens under the hood</h2>
-              <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
-                <li>MarkItDown converts the URL/file to clean markdown text (free, no AI key)</li>
-                <li>Voyage AI generates a 1024-dim embedding for RAG similarity search</li>
-                <li>The content is upserted into <code className="bg-blue-100 px-1 rounded">knowledge_sources</code> in Supabase</li>
-                <li>The next student query that matches this content will pull it via RAG</li>
-              </ol>
             </Card>
           </div>
         )}
@@ -418,42 +479,37 @@ export default function LocalIngestPage() {
         {tab === 'history' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-600">Items ingested via MarkItDown or local script</p>
-              <button
-                onClick={loadHistory}
-                disabled={histLoading}
-                className="text-xs text-green-600 hover:text-green-800 disabled:opacity-40 transition-colors"
-              >
-                {histLoading ? 'Loading…' : 'Refresh'}
+              <p className="text-sm text-gray-600">All locally ingested items ({history.length})</p>
+              <button onClick={loadHistory} disabled={histLoading}
+                className="text-xs text-green-600 hover:text-green-800 disabled:opacity-40 transition-colors">
+                {histLoading ? 'Loading...' : 'Refresh'}
               </button>
             </div>
 
             {histLoading ? (
               <div className="space-y-2">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="h-16 bg-white rounded-lg border border-gray-200 animate-pulse" />
-                ))}
+                {[1, 2, 3].map(i => <div key={i} className="h-16 bg-white rounded-lg border border-gray-200 animate-pulse" />)}
               </div>
             ) : history.length === 0 ? (
-              <Card padding="md" className="text-center py-8">
+              <Card padding="md" className="text-center py-10">
                 <p className="text-4xl mb-3">📭</p>
-                <p className="text-sm font-medium text-gray-700">No locally ingested items yet</p>
-                <p className="text-xs text-gray-400 mt-1">Use the Command Generator tab to run your first ingest.</p>
+                <p className="text-sm font-medium text-gray-700">Nothing ingested yet</p>
+                <p className="text-xs text-gray-400 mt-1">Use the YouTube Audio or Files &amp; Web tab to run your first ingest.</p>
               </Card>
             ) : (
               <div className="space-y-2">
                 {history.map(item => (
                   <Card key={item.id} padding="sm" className="flex items-start gap-3">
-                    <div className="shrink-0 mt-0.5">
-                      {item.source_type === 'youtube_transcript' ? '▶️' :
-                       item.source_type === 'local_pdf' ? '📄' :
-                       item.source_type === 'local_docx' ? '📝' :
-                       item.source_type === 'past_paper' ? '📋' :
-                       item.source_type === 'notes' ? '📚' : '🌐'}
+                    <div className="text-lg shrink-0 mt-0.5">
+                      {item.source_type === 'youtube_transcript' ? '▶️'
+                        : item.source_type === 'local_pdf' ? '📄'
+                        : item.source_type === 'local_docx' ? '📝'
+                        : item.source_type === 'past_paper' ? '📋'
+                        : item.source_type === 'notes' ? '📚' : '🌐'}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">{item.title}</p>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{item.source_url}</p>
+                      <p className="text-xs text-gray-400 truncate mt-0.5">{item.source_url}</p>
                       <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                         <Badge variant="info">Grade {item.grade}</Badge>
                         <Badge variant="info" className="capitalize">{item.subject_id}</Badge>
@@ -463,7 +519,7 @@ export default function LocalIngestPage() {
                         </span>
                       </div>
                     </div>
-                    <Badge variant={item.status === 'active' ? 'success' : 'warning'} className="shrink-0">
+                    <Badge variant={item.status === 'active' ? 'success' : 'warning'} className="shrink-0 mt-0.5">
                       {item.status}
                     </Badge>
                   </Card>
