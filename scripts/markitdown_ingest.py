@@ -44,8 +44,14 @@ Flags:
 import argparse
 import os
 import sys
+import io
 from pathlib import Path
 from datetime import datetime
+
+# Force UTF-8 output on Windows (handles Devanagari and other non-ASCII)
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 # ── Load env vars from .env.local ──────────────────────────────────────────────
 script_dir = Path(__file__).parent
@@ -103,7 +109,20 @@ def convert_with_markitdown(input_path: str) -> str:
     if not text.strip():
         print("[error] MarkItDown returned empty content")
         sys.exit(1)
-    print(f"[markitdown] Extracted {len(text)} chars / ~{len(text.split())} words")
+
+    word_count = len(text.split())
+    print(f"[markitdown] Extracted {len(text)} chars / ~{word_count} words")
+
+    # Detect YouTube footer-only extraction (transcript was disabled)
+    if word_count < 80 and ("youtube.com/about" in text or "Google LLC" in text):
+        print("[error] YouTube transcript is DISABLED for this video.")
+        print("        MarkItDown only extracted the page footer — no actual content.")
+        print("        Options: find a video with captions enabled, or use AI Knowledge Generator instead.")
+        sys.exit(1)
+
+    if word_count < 30:
+        print(f"[warn] Very short content ({word_count} words) — may not be useful. Continuing anyway.")
+
     return text
 
 
@@ -163,11 +182,11 @@ def main():
     markdown_text = convert_with_markitdown(args.input)
 
     if args.dry_run:
-        print("\n" + "─" * 60)
+        print("\n" + "-" * 60)
         print(markdown_text[:3000])
         if len(markdown_text) > 3000:
             print(f"\n... [{len(markdown_text) - 3000} more chars truncated]")
-        print("─" * 60)
+        print("-" * 60)
         print("[dry-run] Not inserting to DB. Remove --dry-run to ingest.")
         return
 
