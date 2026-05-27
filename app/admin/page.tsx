@@ -442,16 +442,16 @@ export default function AdminPage() {
             </Link>
 
             <Link
-              href="/admin/channel-ingest"
-              className="flex items-start gap-4 p-4 rounded-lg border border-gray-200 hover:border-red-300 hover:bg-red-50 transition-all group"
+              href="/admin/ai-knowledge"
+              className="flex items-start gap-4 p-4 rounded-lg border border-gray-200 hover:border-violet-300 hover:bg-violet-50 transition-all group"
             >
-              <span className="text-2xl">📺</span>
+              <span className="text-2xl">🧬</span>
               <div>
-                <p className="text-sm font-semibold text-gray-900 group-hover:text-red-700 transition-colors">
-                  YouTube channel ingest
+                <p className="text-sm font-semibold text-gray-900 group-hover:text-violet-700 transition-colors">
+                  AI knowledge generator
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Bulk-extract transcripts from an entire YouTube channel and add them to RAG.
+                  Use Claude to write curriculum-aligned explanations for every syllabus topic and load them into RAG.
                 </p>
               </div>
             </Link>
