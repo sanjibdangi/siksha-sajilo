@@ -499,6 +499,21 @@ export default function AdminPage() {
                 </p>
               </div>
             </Link>
+
+            <Link
+              href="/admin/local-ingest"
+              className="flex items-start gap-4 p-4 rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50 transition-all group"
+            >
+              <span className="text-2xl">💻</span>
+              <div>
+                <p className="text-sm font-semibold text-gray-900 group-hover:text-green-700 transition-colors">
+                  Local MarkItDown ingest
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Convert YouTube, PDF, DOCX, PPTX, images to RAG knowledge — free, no AI key. Run locally, uploads to Supabase.
+                </p>
+              </div>
+            </Link>
           </div>
         </Card>
 
