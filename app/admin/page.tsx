@@ -427,6 +427,20 @@ export default function AdminPage() {
             </Link>
 
             <Link
+              href="/admin/past-paper"
+              className="flex items-start gap-4 p-4 rounded-lg border border-gray-200 hover:border-orange-300 hover:bg-orange-50 transition-all group"
+            >
+              <span className="text-2xl">📄</span>
+              <div>
+                <p className="text-sm font-semibold text-gray-900 group-hover:text-orange-700 transition-colors">
+                  SEE past paper ingestion
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Upload real NEB/SEE exam papers — Claude extracts every question into RAG. Strongest external knowledge source.</p>
+              </div>
+            </Link>
+
+            <Link
               href="/admin/sources"
               className="flex items-start gap-4 p-4 rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all group"
             >
