@@ -471,6 +471,21 @@ export default function AdminPage() {
             </Link>
 
             <Link
+              href="/admin/discovery"
+              className="flex items-start gap-4 p-4 rounded-lg border border-gray-200 hover:border-teal-300 hover:bg-teal-50 transition-all group"
+            >
+              <span className="text-2xl">🔍</span>
+              <div>
+                <p className="text-sm font-semibold text-gray-900 group-hover:text-teal-700 transition-colors">
+                  Auto-discovery
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Weekly crawler finds new Nepal education content automatically. Review and approve to add to RAG.
+                </p>
+              </div>
+            </Link>
+
+            <Link
               href="/admin/improve"
               className="flex items-start gap-4 p-4 rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-all group"
             >
