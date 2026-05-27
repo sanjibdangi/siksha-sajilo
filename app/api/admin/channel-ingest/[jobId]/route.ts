@@ -3,12 +3,11 @@ import { createServerClient } from '@/lib/supabase'
 import { embed } from '@/lib/embeddings'
 import { getCurrentYearBs } from '@/lib/yearConfig'
 
-// youtube-transcript uses web scraping — no per-video API key needed
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { YoutubeTranscript } = require('youtube-transcript')
 
 const BATCH_SIZE = 5
-const DELAY_MS = 2000
+const DELAY_MS = 1500
 
 function isAdmin(req: Request) {
   return req.headers.get('x-admin-secret') === process.env.ADMIN_SECRET
@@ -18,7 +17,66 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-// GET /api/admin/channel-ingest/[jobId] — job status + per-video breakdown
+// Transcript-disabled and not-available errors are expected — not failures
+const TRANSCRIPT_MISSING_ERRORS = [
+  'YoutubeTranscriptDisabledError',
+  'YoutubeTranscriptNotAvailableError',
+  'YoutubeTranscriptNotAvailableLanguageError',
+  'YoutubeTranscriptVideoUnavailableError',
+]
+
+async function fetchTranscript(videoId: string): Promise<string | null> {
+  for (const lang of ['en', 'ne', 'hi']) {
+    try {
+      const items: Array<{ text: string }> = await YoutubeTranscript.fetchTranscript(videoId, { lang })
+      if (items?.length) {
+        return items.map((t) => t.text.trim()).filter(Boolean).join(' ').replace(/\s+/g, ' ')
+      }
+    } catch (e) {
+      const name = e instanceof Error ? e.constructor.name : ''
+      if (!TRANSCRIPT_MISSING_ERRORS.includes(name)) throw e
+    }
+  }
+  // Final attempt without language filter
+  try {
+    const items: Array<{ text: string }> = await YoutubeTranscript.fetchTranscript(videoId)
+    if (items?.length) {
+      return items.map((t) => t.text.trim()).filter(Boolean).join(' ').replace(/\s+/g, ' ')
+    }
+  } catch (e) {
+    const name = e instanceof Error ? e.constructor.name : ''
+    if (!TRANSCRIPT_MISSING_ERRORS.includes(name)) throw e
+  }
+  return null
+}
+
+// Batch-fetch video descriptions via YouTube Data API
+async function fetchDescriptions(videoIds: string[]): Promise<Record<string, { description: string; tags: string[] }>> {
+  const apiKey = process.env.YOUTUBE_API_KEY
+  if (!apiKey || !videoIds.length) return {}
+
+  const url = new URL('https://www.googleapis.com/youtube/v3/videos')
+  url.searchParams.set('part', 'snippet')
+  url.searchParams.set('id', videoIds.join(','))
+  url.searchParams.set('key', apiKey)
+
+  try {
+    const res = await fetch(url.toString())
+    const data = await res.json()
+    const out: Record<string, { description: string; tags: string[] }> = {}
+    for (const item of data.items ?? []) {
+      out[item.id] = {
+        description: item.snippet?.description ?? '',
+        tags: item.snippet?.tags ?? [],
+      }
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+// GET /api/admin/channel-ingest/[jobId]
 export async function GET(req: Request, { params }: { params: Promise<{ jobId: string }> }) {
   if (!isAdmin(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { jobId } = await params
@@ -55,7 +113,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ jobId: s
 
 // POST /api/admin/channel-ingest/[jobId]
 // Body: { action: 'process' | 'reset' }
-// Processes the next BATCH_SIZE pending videos. Designed to be called repeatedly until pending=0.
 export async function POST(req: Request, { params }: { params: Promise<{ jobId: string }> }) {
   if (!isAdmin(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { jobId } = await params
@@ -73,10 +130,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ jobId: 
     return NextResponse.json({ ok: true })
   }
 
-  // Mark job as running
   await supabase.from('channel_ingest_jobs').update({ status: 'running', updated_at: new Date().toISOString() }).eq('id', jobId)
 
-  // Fetch job metadata
   const { data: job, error: jobErr } = await supabase
     .from('channel_ingest_jobs')
     .select('grade, subject_id, year_bs')
@@ -87,8 +142,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ jobId: 
 
   const activeYear = job.year_bs || (await getCurrentYearBs())
 
-  // Fetch next batch of pending videos
-  const { data: pending } = await supabase
+  const { data: pendingRows } = await supabase
     .from('channel_ingest_videos')
     .select('id, video_id, video_title, video_url')
     .eq('job_id', jobId)
@@ -96,41 +150,51 @@ export async function POST(req: Request, { params }: { params: Promise<{ jobId: 
     .order('created_at', { ascending: true })
     .limit(BATCH_SIZE)
 
-  const videos = pending ?? []
+  const videos = pendingRows ?? []
+  if (!videos.length) {
+    await supabase.from('channel_ingest_jobs').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', jobId)
+    return NextResponse.json({ ok: true, processed: [], remaining: 0, jobStatus: 'completed' })
+  }
+
+  // Pre-fetch descriptions for the whole batch in one API call
+  const descriptions = await fetchDescriptions(videos.map((v) => v.video_id))
+
   const processed: Array<{ videoId: string; status: string }> = []
 
   for (const video of videos) {
     try {
-      // Fetch transcript
-      const transcriptItems: Array<{ text: string }> = await YoutubeTranscript.fetchTranscript(video.video_id, { lang: 'en' }).catch(
-        () => YoutubeTranscript.fetchTranscript(video.video_id)
-      )
+      // 1. Try transcript first (most content-rich)
+      let rawContent: string | null = await fetchTranscript(video.video_id)
+      let contentSource = 'transcript'
 
-      if (!transcriptItems?.length) {
+      // 2. Fall back to description if no transcript
+      if (!rawContent) {
+        const meta = descriptions[video.video_id]
+        const descText = meta?.description ?? ''
+        const tagsText = meta?.tags?.length ? `\nTopics: ${meta.tags.join(', ')}` : ''
+        const combined = `${video.video_title}\n\n${descText}${tagsText}`.trim()
+        rawContent = combined.length > 50 ? combined : null
+        contentSource = 'description'
+      }
+
+      if (!rawContent) {
         await supabase
           .from('channel_ingest_videos')
-          .update({ status: 'skipped', error_msg: 'No transcript available' })
+          .update({ status: 'skipped', error_msg: 'No transcript or description available' })
           .eq('id', video.id)
         processed.push({ videoId: video.video_id, status: 'skipped' })
         await sleep(DELAY_MS)
         continue
       }
 
-      const rawContent = transcriptItems
-        .map((t) => t.text.trim())
-        .filter(Boolean)
-        .join(' ')
-        .replace(/\s+/g, ' ')
-
       // Generate embedding
       let embedding: number[] | null = null
       try {
         embedding = await embed(rawContent.slice(0, 2000))
       } catch {
-        // Save without embedding — won't appear in RAG but content is preserved
+        // Non-fatal — save without embedding
       }
 
-      // Save to knowledge_sources
       const { data: ks, error: ksErr } = await supabase
         .from('knowledge_sources')
         .insert({
@@ -157,14 +221,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ jobId: 
       } else {
         await supabase
           .from('channel_ingest_videos')
-          .update({ status: 'done', knowledge_source_id: ks.id })
+          .update({ status: 'done', error_msg: contentSource === 'description' ? 'Used video description (no transcript)' : null, knowledge_source_id: ks.id })
           .eq('id', video.id)
         processed.push({ videoId: video.video_id, status: 'done' })
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error'
-      // Detect YouTube rate-limiting
       const isRateLimit = /too many|rate.?limit|429|quota/i.test(msg)
+
       await supabase
         .from('channel_ingest_videos')
         .update({ status: 'error', error_msg: isRateLimit ? 'Rate limited — retry later' : msg })
@@ -172,7 +236,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ jobId: 
       processed.push({ videoId: video.video_id, status: 'error' })
 
       if (isRateLimit) {
-        // Pause the job so the admin knows to resume later
         await supabase
           .from('channel_ingest_jobs')
           .update({ status: 'paused', error_msg: 'Rate limited by YouTube — resume later', updated_at: new Date().toISOString() })
@@ -184,7 +247,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ jobId: 
     await sleep(DELAY_MS)
   }
 
-  // Check if any pending remain
   const { count } = await supabase
     .from('channel_ingest_videos')
     .select('id', { count: 'exact', head: true })
