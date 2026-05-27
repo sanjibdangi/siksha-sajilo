@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
-const ADMIN_SECRET_KEY = 'admin_secret'
+const ADMIN_SECRET_KEY = 'siksha_admin_secret'
 const SUBJECTS = ['mathematics', 'science', 'english', 'nepali', 'social', 'optmath']
 const GRADES = ['9', '10', 'SEE Prep']
 
