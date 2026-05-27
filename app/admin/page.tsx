@@ -442,6 +442,21 @@ export default function AdminPage() {
             </Link>
 
             <Link
+              href="/admin/channel-ingest"
+              className="flex items-start gap-4 p-4 rounded-lg border border-gray-200 hover:border-red-300 hover:bg-red-50 transition-all group"
+            >
+              <span className="text-2xl">📺</span>
+              <div>
+                <p className="text-sm font-semibold text-gray-900 group-hover:text-red-700 transition-colors">
+                  YouTube channel ingest
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Bulk-extract transcripts from an entire YouTube channel and add them to RAG.
+                </p>
+              </div>
+            </Link>
+
+            <Link
               href="/admin/improve"
               className="flex items-start gap-4 p-4 rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-purple-50 transition-all group"
             >

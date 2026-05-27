@@ -34,30 +34,42 @@ export async function getSyllabusContext(
     const embedding = await embed(query)
     const gradeNum = grade === 'SEE Prep' ? 10 : parseInt(grade)
 
-    const { data, error } = await getSupabase().rpc('match_syllabus', {
-      query_embedding: embedding,
-      match_grade: gradeNum,
-      match_subject: subjectId,
-      match_year_bs: activeYear,
-      match_count: topK,
-    })
+    const [syllabusRes, knowledgeRes] = await Promise.all([
+      getSupabase().rpc('match_syllabus', {
+        query_embedding: embedding,
+        match_grade: gradeNum,
+        match_subject: subjectId,
+        match_year_bs: activeYear,
+        match_count: topK,
+      }),
+      getSupabase().rpc('match_knowledge_sources', {
+        query_embedding: embedding,
+        match_grade: grade,
+        match_subject: subjectId,
+        match_year_bs: activeYear,
+        match_count: 2,
+      }),
+    ])
 
-    if (error || !data?.length) {
-      if (contextCache.size >= CACHE_MAX) contextCache.delete(contextCache.keys().next().value!)
-      contextCache.set(cacheKey, '')
-      return ''
-    }
+    const syllabusChunks = (!syllabusRes.error && syllabusRes.data?.length)
+      ? (syllabusRes.data as SyllabusChunk[]).map(
+          (chunk) =>
+            `Unit ${chunk.unit_no}: ${chunk.unit_title}\nChapter ${chunk.chapter_no}: ${chunk.chapter_title}\nTopic: ${chunk.topic}\nMarks weight: ${chunk.marks_weight}\nLearning objectives: ${chunk.learning_objectives?.join(', ')}`
+        ).join('\n\n---\n\n')
+      : ''
 
-    const result = (data as SyllabusChunk[])
-      .map(
-        (chunk) =>
-          `Unit ${chunk.unit_no}: ${chunk.unit_title}
-Chapter ${chunk.chapter_no}: ${chunk.chapter_title}
-Topic: ${chunk.topic}
-Marks weight: ${chunk.marks_weight}
-Learning objectives: ${chunk.learning_objectives?.join(', ')}`
-      )
-      .join('\n\n---\n\n')
+    const knowledgeChunks = (!knowledgeRes.error && knowledgeRes.data?.length)
+      ? (knowledgeRes.data as Array<{ title: string; source_type: string; source_url: string; raw_content: string; topic_tags: string[] }>)
+          .map(
+            (ks) =>
+              `[Reference: ${ks.title || ks.source_type}${ks.source_url ? ` — ${ks.source_url}` : ''}]\n${ks.raw_content.slice(0, 1200)}`
+          ).join('\n\n---\n\n')
+      : ''
+
+    const parts = [syllabusChunks, knowledgeChunks].filter(Boolean)
+    const result = parts.length
+      ? parts.join('\n\n===\n\n')
+      : ''
 
     if (contextCache.size >= CACHE_MAX) {
       contextCache.delete(contextCache.keys().next().value!)

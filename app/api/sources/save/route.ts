@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { getCurrentYearBs } from '@/lib/yearConfig'
+import { embed } from '@/lib/embeddings'
 
 export async function POST(req: Request) {
   if (req.headers.get('x-admin-secret') !== process.env.ADMIN_SECRET) {
@@ -16,6 +17,14 @@ export async function POST(req: Request) {
 
   const supabase = createServerClient()
 
+  // Generate embedding from first 2000 chars (sufficient for semantic search)
+  let embedding: number[] | null = null
+  try {
+    embedding = await embed(rawContent.slice(0, 2000))
+  } catch {
+    // Non-fatal: save without embedding; it won't appear in RAG results
+  }
+
   const { data, error } = await supabase
     .from('knowledge_sources')
     .insert({
@@ -30,6 +39,7 @@ export async function POST(req: Request) {
       raw_content: rawContent,
       word_count: wordCount || null,
       status: 'active',
+      embedding,
     })
     .select('id')
     .single()
