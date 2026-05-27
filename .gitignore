@@ -38,5 +38,10 @@ next-env.d.ts
 .vercel
 .env*
 
-# local test scripts
-/scripts/
+# local test scripts (keep markitdown_ingest.py and requirements.txt tracked)
+/scripts/test-*.mjs
+/scripts/*.mjs
+/scripts/__pycache__/
+/scripts/.venv/
+
+.env*
