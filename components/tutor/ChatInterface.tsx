@@ -84,6 +84,16 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
         body: JSON.stringify({ messages: apiMessages, subject, grade, topic, confidence, subjectId, lang }),
       })
 
+      if (res.status === 429) {
+        const errData = await res.json().catch(() => ({}))
+        setMessages(prev => {
+          const next = [...prev]
+          next[next.length - 1] = { role: 'assistant', content: errData.error ?? 'Daily limit reached. Come back tomorrow!' }
+          return next
+        })
+        hasRecordedRef.current = true  // don't record a limit-hit as a session
+        return
+      }
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
         throw new Error(errData.error ?? `Server error ${res.status}`)

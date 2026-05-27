@@ -62,7 +62,21 @@ export function WriteClient({ subject, subjectId, grade, confidence, topic, lang
         body: JSON.stringify({ messages: history, subject, grade, confidence, lang }),
       })
 
-      if (!res.ok || !res.body) throw new Error('Request failed')
+      if (res.status === 429) {
+        const errData = await res.json().catch(() => ({}))
+        setMessages(prev => {
+          const updated = [...prev]
+          updated[updated.length - 1] = { role: 'assistant', content: errData.error ?? 'Daily limit reached. Come back tomorrow!' }
+          return updated
+        })
+        hasRecordedRef.current = true
+        return
+      }
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error ?? 'Something went wrong. Please try again.')
+      }
+      if (!res.body) throw new Error('Something went wrong. Please try again.')
 
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
@@ -79,10 +93,11 @@ export function WriteClient({ subject, subjectId, grade, confidence, topic, lang
         })
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
       }
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
       setMessages(prev => {
         const updated = [...prev]
-        updated[updated.length - 1] = { role: 'assistant', content: 'Something went wrong. Please try again.' }
+        updated[updated.length - 1] = { role: 'assistant', content: msg }
         return updated
       })
     } finally {

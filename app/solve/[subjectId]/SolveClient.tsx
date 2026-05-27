@@ -149,6 +149,12 @@ export function SolveClient({ subject, subjectId, grade, confidence, lang }: Sol
           ...(attachedPhoto ? { imageBase64: attachedPhoto.base64, imageMediaType: attachedPhoto.mediaType } : {}),
         }),
       })
+      if (res.status === 429) {
+        const e = await res.json().catch(() => ({}))
+        setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: 'assistant', content: e.error ?? 'Daily limit reached. Come back tomorrow!' }; return u })
+        hasRecordedRef.current = true
+        return
+      }
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error ?? `${res.status}`) }
       if (!res.body) throw new Error('Stream failed')
 

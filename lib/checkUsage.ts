@@ -46,7 +46,9 @@ interface UsageResult {
  */
 export async function checkAndIncrementUsage(req: NextRequest): Promise<UsageResult> {
   const userId = await getSessionUserId(req)
-  if (!userId) return { allowed: false, used: 0, limit: 0 }
+  // No session → user is unauthenticated; middleware already blocks the UI pages,
+  // so fail open here rather than returning a misleading "limit reached (0)" error.
+  if (!userId) return { allowed: true, used: 0, limit: FALLBACK_LIMIT }
 
   const limit = await getDailyLimit()
   const supabase = createServerClient()
