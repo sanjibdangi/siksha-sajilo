@@ -30,23 +30,83 @@ export default function AdminPage() {
   const [savedSecret, setSavedSecret] = useState<string | null>(null)
   const [authError, setAuthError] = useState('')
   const [verifying, setVerifying] = useState(false)
+  // true while the page is checking a stored session on load
+  const [sessionChecking, setSessionChecking] = useState(true)
+
   const [stats, setStats] = useState<Stats | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [statsLoading, setStatsLoading] = useState(false)
+
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null)
-  const [limitInput, setLimitInput] = useState('')
+  const [usageLoading, setUsageLoading] = useState(false)
+  const [limitInput, setLimitInput] = useState('100')
   const [limitSaving, setLimitSaving] = useState(false)
   const [limitMsg, setLimitMsg] = useState('')
 
+  // On page load, validate any stored session against the server.
+  // A hard-refresh keeps sessionStorage alive, so we must re-verify rather than
+  // trusting whatever string is stored.
   useEffect(() => {
     const stored = sessionStorage.getItem(ADMIN_SECRET_KEY)
-    if (stored) {
-      setSavedSecret(stored)
-      loadStats()
-      loadUsageStats(stored)
+    if (!stored) {
+      setSessionChecking(false)
+      return
     }
+    ;(async () => {
+      try {
+        const res = await fetch('/api/admin/usage-stats', {
+          headers: { 'x-admin-secret': stored },
+        })
+        if (!res.ok) {
+          // Stored secret is invalid or ADMIN_SECRET changed — clear it
+          sessionStorage.removeItem(ADMIN_SECRET_KEY)
+          setSessionChecking(false)
+          return
+        }
+        const data = await res.json()
+        setSavedSecret(stored)
+        setUsageStats(data)
+        setLimitInput(String(data.currentLimit))
+        loadSyllabusStats()
+      } catch {
+        sessionStorage.removeItem(ADMIN_SECRET_KEY)
+      } finally {
+        setSessionChecking(false)
+      }
+    })()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function loadUsageStats(adminSecret: string) {
+  async function loadSyllabusStats() {
+    setStatsLoading(true)
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('syllabus')
+        .select('status, subject_id, grade')
+      if (error) throw error
+      const rows = data ?? []
+      const s: Stats = {
+        totalChunks: rows.length,
+        activeChunks: rows.filter(r => r.status === 'active').length,
+        draftChunks: rows.filter(r => r.status === 'draft').length,
+        archivedChunks: rows.filter(r => r.status === 'archived').length,
+        bySubject: {},
+        byGrade: {},
+      }
+      for (const r of rows.filter(x => x.status === 'active')) {
+        s.bySubject[r.subject_id] = (s.bySubject[r.subject_id] ?? 0) + 1
+        s.byGrade[r.grade] = (s.byGrade[r.grade] ?? 0) + 1
+      }
+      setStats(s)
+    } catch {
+      // informational — fail silently
+    } finally {
+      setStatsLoading(false)
+    }
+  }
+
+  async function refreshUsageStats(adminSecret: string) {
+    setUsageLoading(true)
     try {
       const res = await fetch('/api/admin/usage-stats', {
         headers: { 'x-admin-secret': adminSecret },
@@ -57,7 +117,49 @@ export default function AdminPage() {
       setLimitInput(String(data.currentLimit))
     } catch {
       // non-critical
+    } finally {
+      setUsageLoading(false)
     }
+  }
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault()
+    const trimmed = secret.trim()
+    if (!trimmed || verifying) return
+    setAuthError('')
+    setVerifying(true)
+    try {
+      const res = await fetch('/api/admin/usage-stats', {
+        headers: { 'x-admin-secret': trimmed },
+      })
+      if (res.status === 401) {
+        setAuthError('Invalid admin secret.')
+        return
+      }
+      if (!res.ok) {
+        setAuthError('Server error. Try again.')
+        return
+      }
+      const data = await res.json()
+      sessionStorage.setItem(ADMIN_SECRET_KEY, trimmed)
+      setSavedSecret(trimmed)
+      setUsageStats(data)
+      setLimitInput(String(data.currentLimit))
+      loadSyllabusStats()
+    } catch {
+      setAuthError('Could not reach server. Try again.')
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  function handleLogout() {
+    sessionStorage.removeItem(ADMIN_SECRET_KEY)
+    setSavedSecret(null)
+    setStats(null)
+    setUsageStats(null)
+    setLimitInput('100')
+    setLimitMsg('')
   }
 
   async function saveLimit() {
@@ -86,72 +188,9 @@ export default function AdminPage() {
     }
   }
 
-  async function loadStats() {
-    setLoading(true)
-    try {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('syllabus')
-        .select('status, subject_id, grade')
-
-      if (error) throw error
-
-      const rows = data ?? []
-      const s: Stats = {
-        totalChunks: rows.length,
-        activeChunks: rows.filter(r => r.status === 'active').length,
-        draftChunks: rows.filter(r => r.status === 'draft').length,
-        archivedChunks: rows.filter(r => r.status === 'archived').length,
-        bySubject: {},
-        byGrade: {},
-      }
-      for (const r of rows.filter(x => x.status === 'active')) {
-        s.bySubject[r.subject_id] = (s.bySubject[r.subject_id] ?? 0) + 1
-        s.byGrade[r.grade] = (s.byGrade[r.grade] ?? 0) + 1
-      }
-      setStats(s)
-    } catch {
-      // Stats are informational — fail silently, still show dashboard
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
-    const trimmed = secret.trim()
-    if (!trimmed || verifying) return
-    setAuthError('')
-    setVerifying(true)
-    try {
-      const res = await fetch('/api/admin/usage-stats', {
-        headers: { 'x-admin-secret': trimmed },
-      })
-      if (res.status === 401) {
-        setAuthError('Invalid admin secret.')
-        return
-      }
-      if (!res.ok) {
-        setAuthError('Server error. Try again.')
-        return
-      }
-      const data = await res.json()
-      sessionStorage.setItem(ADMIN_SECRET_KEY, trimmed)
-      setSavedSecret(trimmed)
-      setUsageStats(data)
-      setLimitInput(String(data.currentLimit))
-      loadStats()
-    } catch {
-      setAuthError('Could not reach server. Try again.')
-    } finally {
-      setVerifying(false)
-    }
-  }
-
-  function handleLogout() {
-    sessionStorage.removeItem(ADMIN_SECRET_KEY)
-    setSavedSecret(null)
-    setStats(null)
+  // Show blank while validating the stored session so there's no flash of login form
+  if (sessionChecking) {
+    return <div className="min-h-screen bg-gray-50" />
   }
 
   if (!savedSecret) {
@@ -208,17 +247,92 @@ export default function AdminPage() {
           <p className="text-sm text-gray-500 mt-1">Syllabus health and admin tools.</p>
         </div>
 
-        {/* Stat cards */}
+        {/* ── Daily usage limit — top of page so it's always visible ── */}
+        <Card padding="md" className="space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-700">Daily usage limit</h2>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Max AI messages per student per day (tutor, solve, write). Quiz and flashcards are cached — not counted.
+              </p>
+            </div>
+            <button
+              onClick={() => savedSecret && refreshUsageStats(savedSecret)}
+              disabled={usageLoading}
+              className="text-xs text-indigo-500 hover:text-indigo-700 disabled:opacity-40 transition-colors"
+            >
+              {usageLoading ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </div>
+
+          {/* Today's stats */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Messages today', value: usageLoading ? '…' : (usageStats?.totalInteractions ?? 0) },
+              { label: 'Active students', value: usageLoading ? '…' : (usageStats?.uniqueUsers ?? 0) },
+              { label: 'At limit', value: usageLoading ? '…' : (usageStats?.usersAtLimit ?? 0) },
+            ].map(s => (
+              <div key={s.label} className="bg-gray-50 rounded-lg px-3 py-3 text-center">
+                <p className="text-xl font-bold text-gray-900">{s.value}</p>
+                <p className="text-xs text-gray-400 mt-0.5 leading-tight">{s.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Limit control */}
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <label className="text-xs font-medium text-gray-600 block mb-1.5">
+                Messages per day
+                {usageStats && (
+                  <span className="text-gray-400 font-normal ml-1">(current: <strong className="text-gray-700">{usageStats.currentLimit}</strong>)</span>
+                )}
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={10000}
+                value={limitInput}
+                onChange={e => { setLimitInput(e.target.value); setLimitMsg('') }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="e.g. 100"
+              />
+            </div>
+            <Button
+              onClick={saveLimit}
+              disabled={limitSaving}
+              size="sm"
+            >
+              {limitSaving ? 'Saving…' : 'Update'}
+            </Button>
+          </div>
+
+          {limitMsg && (
+            <p className={`text-xs font-medium ${limitMsg.startsWith('Saved') ? 'text-green-600' : 'text-red-600'}`}>
+              {limitMsg}
+            </p>
+          )}
+
+          <div className="text-xs text-gray-400 border-t border-gray-100 pt-3 space-y-0.5">
+            <p>• Set higher (200+) during low-activity periods to encourage usage.</p>
+            <p>• Lower (50–80) during exam season if costs spike.</p>
+            <p>• Change takes effect immediately — no redeploy needed.</p>
+          </div>
+        </Card>
+
+        {/* ── Syllabus health stats ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { label: 'Total chunks', value: stats?.totalChunks ?? '—', color: 'text-gray-900' },
-            { label: 'Active', value: stats?.activeChunks ?? '—', color: 'text-green-700' },
-            { label: 'Draft', value: stats?.draftChunks ?? '—', color: 'text-amber-700' },
-            { label: 'Archived', value: stats?.archivedChunks ?? '—', color: 'text-gray-400' },
+            { label: 'Total chunks', value: stats?.totalChunks ?? 0, color: 'text-gray-900' },
+            { label: 'Active', value: stats?.activeChunks ?? 0, color: 'text-green-700' },
+            { label: 'Draft', value: stats?.draftChunks ?? 0, color: 'text-amber-700' },
+            { label: 'Archived', value: stats?.archivedChunks ?? 0, color: 'text-gray-400' },
           ].map(s => (
             <Card key={s.label} padding="md">
               <p className={`text-2xl font-bold ${s.color}`}>
-                {loading ? <span className="animate-pulse bg-gray-200 rounded h-7 w-12 inline-block" /> : s.value}
+                {statsLoading
+                  ? <span className="animate-pulse bg-gray-200 rounded h-7 w-10 inline-block" />
+                  : s.value}
               </p>
               <p className="text-xs text-gray-500 mt-1">{s.label}</p>
             </Card>
@@ -263,7 +377,7 @@ export default function AdminPage() {
           </Card>
         )}
 
-        {/* Admin actions */}
+        {/* Admin tools */}
         <Card padding="md" className="space-y-4">
           <h2 className="text-sm font-semibold text-gray-700">Admin tools</h2>
           <div className="grid sm:grid-cols-2 gap-3">
@@ -344,69 +458,7 @@ export default function AdminPage() {
           </div>
         </Card>
 
-        {/* Usage limits */}
-        <Card padding="md" className="space-y-5">
-          <div>
-            <h2 className="text-sm font-semibold text-gray-700">Daily usage limit</h2>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Controls how many AI messages (tutor, solve, write) each student can send per day.
-              Quiz and flashcard are cached and not counted.
-            </p>
-          </div>
-
-          {/* Today's stats */}
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: 'Total messages today', value: usageStats?.totalInteractions ?? '—' },
-              { label: 'Active students today', value: usageStats?.uniqueUsers ?? '—' },
-              { label: 'Students at limit', value: usageStats?.usersAtLimit ?? '—' },
-            ].map(s => (
-              <div key={s.label} className="bg-gray-50 rounded-lg px-3 py-3 text-center">
-                <p className="text-xl font-bold text-gray-900">{s.value}</p>
-                <p className="text-xs text-gray-400 mt-0.5 leading-tight">{s.label}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Limit control */}
-          <div className="flex items-end gap-3">
-            <div className="flex-1">
-              <label className="text-xs font-medium text-gray-600 block mb-1.5">
-                Messages per day (current: <strong>{usageStats?.currentLimit ?? '…'}</strong>)
-              </label>
-              <input
-                type="number"
-                min={1}
-                max={10000}
-                value={limitInput}
-                onChange={e => { setLimitInput(e.target.value); setLimitMsg('') }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="e.g. 100"
-              />
-            </div>
-            <Button
-              onClick={saveLimit}
-              disabled={limitSaving || !limitInput}
-              size="sm"
-            >
-              {limitSaving ? 'Saving…' : 'Update'}
-            </Button>
-          </div>
-
-          {limitMsg && (
-            <p className={`text-xs font-medium ${limitMsg.startsWith('Saved') ? 'text-green-600' : 'text-red-600'}`}>
-              {limitMsg}
-            </p>
-          )}
-
-          <div className="text-xs text-gray-400 border-t border-gray-100 pt-3 space-y-0.5">
-            <p>• Set higher (200+) during low-activity periods to encourage usage.</p>
-            <p>• Lower (50–80) during exam season if costs spike.</p>
-            <p>• Change takes effect immediately — no redeploy needed.</p>
-          </div>
-        </Card>
-
-        {/* Draft syllabus needing review */}
+        {/* Draft syllabus alert */}
         {stats && stats.draftChunks > 0 && (
           <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
             <span className="text-amber-500 text-xl">⚠️</span>
