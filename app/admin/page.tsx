@@ -29,6 +29,7 @@ export default function AdminPage() {
   const [secret, setSecret] = useState('')
   const [savedSecret, setSavedSecret] = useState<string | null>(null)
   const [authError, setAuthError] = useState('')
+  const [verifying, setVerifying] = useState(false)
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(false)
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null)
@@ -116,14 +117,35 @@ export default function AdminPage() {
     }
   }
 
-  function handleLogin(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
-    if (!secret.trim()) return
-    sessionStorage.setItem(ADMIN_SECRET_KEY, secret.trim())
-    setSavedSecret(secret.trim())
+    const trimmed = secret.trim()
+    if (!trimmed || verifying) return
     setAuthError('')
-    loadStats()
-    loadUsageStats(secret.trim())
+    setVerifying(true)
+    try {
+      const res = await fetch('/api/admin/usage-stats', {
+        headers: { 'x-admin-secret': trimmed },
+      })
+      if (res.status === 401) {
+        setAuthError('Invalid admin secret.')
+        return
+      }
+      if (!res.ok) {
+        setAuthError('Server error. Try again.')
+        return
+      }
+      const data = await res.json()
+      sessionStorage.setItem(ADMIN_SECRET_KEY, trimmed)
+      setSavedSecret(trimmed)
+      setUsageStats(data)
+      setLimitInput(String(data.currentLimit))
+      loadStats()
+    } catch {
+      setAuthError('Could not reach server. Try again.')
+    } finally {
+      setVerifying(false)
+    }
   }
 
   function handleLogout() {
@@ -146,12 +168,13 @@ export default function AdminPage() {
               placeholder="Admin secret"
               value={secret}
               onChange={e => setSecret(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              disabled={verifying}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
               autoFocus
             />
             {authError && <p className="text-sm text-red-600">{authError}</p>}
-            <Button type="submit" className="w-full" disabled={!secret.trim()}>
-              Enter
+            <Button type="submit" className="w-full" disabled={!secret.trim() || verifying}>
+              {verifying ? 'Verifying…' : 'Enter'}
             </Button>
           </form>
         </Card>
