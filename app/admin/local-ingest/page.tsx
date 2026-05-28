@@ -12,11 +12,15 @@ const ADMIN_SECRET_KEY = 'siksha_admin_secret'
 const GRADES = ['9', '10', 'SEE Prep'] as const
 const SUBJECTS = [
   { id: 'mathematics', label: 'Mathematics' },
-  { id: 'science', label: 'Science' },
-  { id: 'english', label: 'English' },
-  { id: 'nepali', label: 'Nepali' },
-  { id: 'social', label: 'Social Studies' },
-  { id: 'optmath', label: 'Optional Mathematics' },
+  { id: 'science',     label: 'Science' },
+  { id: 'english',     label: 'English' },
+  { id: 'nepali',      label: 'Nepali' },
+  { id: 'social',      label: 'Social Studies' },
+  { id: 'hpe',         label: 'HPE' },
+  { id: 'optmath',     label: 'Optional Mathematics' },
+  { id: 'computer',    label: 'Computer Science' },
+  { id: 'account',     label: 'Account' },
+  { id: 'economics',   label: 'Economics' },
 ] as const
 const FILE_TYPES = [
   { id: 'notes', label: 'Notes' },

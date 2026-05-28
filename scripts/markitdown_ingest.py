@@ -33,7 +33,7 @@ Usage:
 Flags:
   --input    URL or local file path (required)
   --grade    9 | 10 | SEE Prep  (required)
-  --subject  mathematics | science | english | nepali | social | optmath  (required)
+  --subject  mathematics | science | english | nepali | social | hpe | optmath | computer | account | economics  (required)
   --type     notes | past_paper | model_question | textbook | article  (required)
   --title    Human-readable title (required)
   --year     BS year integer, e.g. 2079  (optional)
@@ -74,7 +74,12 @@ SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 VOYAGE_API_KEY = os.environ.get("VOYAGE_API_KEY", "")
 
 VALID_GRADES = {"9", "10", "SEE Prep"}
-VALID_SUBJECTS = {"mathematics", "science", "english", "nepali", "social", "optmath"}
+VALID_SUBJECTS = {
+    # Compulsory
+    "mathematics", "science", "english", "nepali", "social", "hpe",
+    # Optional
+    "optmath", "computer", "account", "economics",
+}
 VALID_TYPES = {"notes", "past_paper", "model_question", "textbook", "article", "youtube_transcript", "local_pdf", "local_docx"}
 
 

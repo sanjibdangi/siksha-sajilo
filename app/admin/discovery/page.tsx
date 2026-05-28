@@ -26,7 +26,11 @@ const SUBJECT_LABELS: Record<string, string> = {
   english: 'English',
   nepali: 'Nepali',
   social: 'Social',
+  hpe: 'HPE',
   optmath: 'Opt. Math',
+  computer: 'Computer',
+  account: 'Account',
+  economics: 'Economics',
 }
 
 interface QueueItem {

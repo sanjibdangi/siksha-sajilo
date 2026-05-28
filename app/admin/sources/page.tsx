@@ -12,7 +12,11 @@ const SUBJECT_NAMES: Record<string, string> = {
   english: 'English',
   nepali: 'Nepali',
   social: 'Social Studies',
+  hpe: 'HPE',
   optmath: 'Optional Maths',
+  computer: 'Computer',
+  account: 'Account',
+  economics: 'Economics',
 }
 
 type SourceType = 'youtube' | 'pdf' | 'docx' | 'text'

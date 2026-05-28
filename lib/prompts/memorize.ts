@@ -42,6 +42,34 @@ const SUBJECT_CARD_TYPES: Record<string, string> = {
 - Application cards: front = "When do you use [method/formula]?", back = condition + example
 - Step cards: front = "How do you [solve type X]?", back = numbered procedure
 - Shortcut cards: front = "Quick way to [calculation]?", back = shortcut + when it works`,
+
+  hpe: `Mix of:
+- Definition cards: front = "What is [health/fitness term]?", back = definition + real-life relevance
+- Benefit cards: front = "Benefits of [exercise/habit]?", back = physical + mental benefits listed
+- Process cards: front = "How do you perform [yoga pose/exercise]?", back = step-by-step instructions
+- First aid cards: front = "First aid for [injury/emergency]?", back = immediate steps in order
+- Nutrition cards: front = "What does [nutrient] do for the body?", back = function + food sources in Nepal context`,
+
+  computer: `Mix of:
+- Definition cards: front = "What is [computer term/concept]?", back = definition + example
+- Shortcut cards: front = "Keyboard shortcut for [action]?", back = key combination
+- Concept cards: front = "Difference between [X] and [Y]?", back = clear comparison
+- Function cards: front = "What does [function/command] do?", back = purpose + syntax
+- Process cards: front = "Steps to [perform task in software]?", back = numbered steps`,
+
+  account: `Mix of:
+- Definition cards: front = "What is [accounting term]?", back = definition + example transaction
+- Rule cards: front = "Rule of [type of account]?", back = debit/credit rule
+- Formula cards: front = "Formula for [accounting equation/ratio]?", back = formula + what it measures
+- Entry cards: front = "Journal entry for [transaction]?", back = debit/credit accounts + amounts
+- Statement cards: front = "What does [financial statement] show?", back = purpose + key elements`,
+
+  economics: `Mix of:
+- Definition cards: front = "What is [economics term]?", back = definition + Nepal example
+- Relationship cards: front = "How does [variable X] affect [variable Y]?", back = relationship + direction
+- Formula cards: front = "Formula for [economic measure]?", back = formula + interpretation
+- Concept cards: front = "Difference between [X] and [Y]?", back = comparison with examples
+- Nepal context cards: front = "Example of [economic concept] in Nepal?", back = real Nepal example`,
 }
 
 export function buildMemorizePrompt(

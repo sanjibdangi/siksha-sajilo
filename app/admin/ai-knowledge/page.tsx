@@ -8,11 +8,15 @@ const BATCH_SIZE = 5
 
 const SUBJECTS = [
   { id: 'mathematics', name: 'Mathematics' },
-  { id: 'science', name: 'Science' },
-  { id: 'english', name: 'English' },
-  { id: 'nepali', name: 'Nepali' },
-  { id: 'social', name: 'Social Studies' },
-  { id: 'optmath', name: 'Optional Mathematics' },
+  { id: 'science',     name: 'Science' },
+  { id: 'english',     name: 'English' },
+  { id: 'nepali',      name: 'Nepali' },
+  { id: 'social',      name: 'Social Studies' },
+  { id: 'hpe',         name: 'HPE' },
+  { id: 'optmath',     name: 'Optional Mathematics' },
+  { id: 'computer',    name: 'Computer Science' },
+  { id: 'account',     name: 'Account' },
+  { id: 'economics',   name: 'Economics' },
 ]
 const GRADES = ['9', '10', 'SEE Prep']
 

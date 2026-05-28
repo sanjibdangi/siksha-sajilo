@@ -95,12 +95,18 @@ OUTPUT SCHEMA (JSON array of units):
 Return ONLY the JSON array. No other text."""
 
 SUBJECTS = {
+    # Compulsory subjects
     'mathematics': 'Compulsory Mathematics',
     'science':     'Science and Technology',
     'english':     'English',
     'nepali':      'Nepali',
-    'social':      'Social Studies',
+    'social':      'Social Studies and Population Education',
+    'hpe':         'Health, Physical and Creative Education',
+    # Optional subjects
     'optmath':     'Optional Mathematics',
+    'computer':    'Computer Science and IT',
+    'account':     'Account',
+    'economics':   'Economics',
 }
 
 
@@ -108,7 +114,8 @@ SUBJECTS = {
 
 def load_text(subject_id: str, grade: int) -> str | None:
     text_dir = Path(__file__).parent / 'seed_texts'
-    alias = 'math' if subject_id == 'mathematics' else subject_id
+    aliases = {'mathematics': 'math', 'computer': 'ict', 'economics': 'econ', 'account': 'accounts'}
+    alias = aliases.get(subject_id, subject_id)
     candidates = [
         text_dir / f'grade{grade}_{subject_id}.txt',
         text_dir / f'grade{grade}_{alias}.txt',

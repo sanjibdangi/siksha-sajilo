@@ -26,9 +26,11 @@ ANTHROPIC_KEY = os.environ['ANTHROPIC_API_KEY']
 SUPABASE_URL  = os.environ['NEXT_PUBLIC_SUPABASE_URL']
 SUPABASE_KEY  = os.environ['SUPABASE_SERVICE_ROLE_KEY']
 
-# NEB exam structure per subject (written exam = 75 marks)
-# MCQ: 1 mark each | Short answer: 2-4 marks each | Long answer: 6-8 marks each
+# NEB exam structure per subject
+# Compulsory subjects: 75 marks written exam
+# HPE + optional subjects: 50 marks written exam (25 marks practical/internal separately)
 EXAM_STRUCTURE = {
+    # ── Compulsory (75 marks written) ──────────────────────────────────────────
     'mathematics': {
         'mcq':   {'count': 10, 'marks_each': 1},
         'short': {'count': 10, 'marks_each': 4},
@@ -54,10 +56,32 @@ EXAM_STRUCTURE = {
         'short': {'count':  8, 'marks_each': 4},
         'long':  {'count':  3, 'marks_each': 8},
     },
+    # HPE: 50 marks written + 25 marks practical (total 75)
+    'hpe': {
+        'mcq':   {'count': 10, 'marks_each': 1},
+        'short': {'count':  5, 'marks_each': 4},
+        'long':  {'count':  2, 'marks_each': 8},
+    },
+    # ── Optional subjects (50 marks written + 25 marks practical, total 75) ────
     'optmath': {
         'mcq':   {'count': 10, 'marks_each': 1},
         'short': {'count': 10, 'marks_each': 4},
         'long':  {'count':  3, 'marks_each': 8},
+    },
+    'computer': {
+        'mcq':   {'count': 10, 'marks_each': 1},
+        'short': {'count':  5, 'marks_each': 4},
+        'long':  {'count':  2, 'marks_each': 8},
+    },
+    'account': {
+        'mcq':   {'count': 10, 'marks_each': 1},
+        'short': {'count':  5, 'marks_each': 4},
+        'long':  {'count':  2, 'marks_each': 8},
+    },
+    'economics': {
+        'mcq':   {'count': 10, 'marks_each': 1},
+        'short': {'count':  5, 'marks_each': 4},
+        'long':  {'count':  2, 'marks_each': 8},
     },
 }
 
@@ -66,8 +90,12 @@ SUBJECT_NAMES = {
     'science':     'Science and Technology',
     'english':     'English',
     'nepali':      'Nepali',
-    'social':      'Social Studies',
+    'social':      'Social Studies and Population Education',
+    'hpe':         'Health, Physical and Creative Education',
     'optmath':     'Optional Mathematics',
+    'computer':    'Computer Science and IT',
+    'account':     'Account',
+    'economics':   'Economics',
 }
 
 

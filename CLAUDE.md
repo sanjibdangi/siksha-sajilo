@@ -90,14 +90,27 @@ Most students asking are already stressed before they type their question. Many 
 
 ## 5. Subjects
 
-| ID | English Name | Nepali Name | Icon |
-|----|-------------|-------------|------|
-| `mathematics` | Mathematics | गणित | 📐 |
-| `science` | Science | विज्ञान | 🔬 |
-| `english` | English | अंग्रेजी | 📖 |
-| `nepali` | Nepali | नेपाली | 🇳🇵 |
-| `social` | Social Studies | सामाजिक | 🌏 |
-| `optmath` | Optional Mathematics | ऐच्छिक गणित | ∑ |
+**Compulsory (all grades):**
+
+| ID | English Name | Nepali Name | Marks (SEE) | Icon |
+|----|-------------|-------------|-------------|------|
+| `mathematics` | Mathematics | गणित | 100 (75W + 25I) | 📐 |
+| `science` | Science & Technology | विज्ञान तथा प्रविधि | 100 (75W + 25I) | 🔬 |
+| `english` | English | अंग्रेजी | 100 (75W + 25I) | 📖 |
+| `nepali` | Nepali | नेपाली | 100 (75W + 25I) | 🇳🇵 |
+| `social` | Social Studies & Population Education | सामाजिक अध्ययन तथा जनसंख्या शिक्षा | 100 (75W + 25I) | 🌏 |
+| `hpe` | Health, Physical & Creative Education | स्वास्थ्य, शारीरिक तथा सिर्जनात्मक शिक्षा | 75 (50W + 25P) | 🏃 |
+
+**Optional (student chooses one):**
+
+| ID | English Name | Nepali Name | Marks (SEE) | Icon |
+|----|-------------|-------------|-------------|------|
+| `optmath` | Optional Mathematics | ऐच्छिक गणित | 100 (75W + 25I) | ∑ |
+| `computer` | Computer Science & IT | सूचना तथा सञ्चार प्रविधि | 75 (50W + 25P) | 💻 |
+| `account` | Account | लेखा | 75 (50W + 25P) | 📊 |
+| `economics` | Economics | अर्थशास्त्र | 75 (50W + 25P) | 📈 |
+
+W = Written exam, I = Internal assessment, P = Practical
 
 ---
 

@@ -7,11 +7,13 @@ const ADMIN_SECRET_KEY = 'siksha_admin_secret'
 
 const SUBJECT_NAMES: Record<string, string> = {
   mathematics: 'Mathematics', science: 'Science', english: 'English',
-  nepali: 'Nepali', social: 'Social Studies', optmath: 'Optional Maths',
+  nepali: 'Nepali', social: 'Social Studies', hpe: 'HPE',
+  optmath: 'Optional Maths', computer: 'Computer', account: 'Account', economics: 'Economics',
 }
 const SUBJECT_ICONS: Record<string, string> = {
   mathematics: '📐', science: '🔬', english: '📖',
-  nepali: '🇳🇵', social: '🌏', optmath: '∑',
+  nepali: '🇳🇵', social: '🌏', hpe: '🏃',
+  optmath: '∑', computer: '💻', account: '📊', economics: '📈',
 }
 
 interface Improvement {

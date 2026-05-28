@@ -44,6 +44,8 @@ export const MONITORED_SOURCES: MonitoredSource[] = [
 export const CONTENT_KEYWORDS = [
   'SEE', 'NEB', 'class 9', 'class 10', 'grade 9', 'grade 10',
   'mathematics', 'science', 'english', 'nepali', 'social studies',
+  'health physical education', 'HPE', 'computer science', 'ICT',
+  'account', 'economics', 'optional mathematics',
   'model question', 'past paper', 'question paper', 'exam question',
-  'nepal', 'CDC', 'curriculum', 'optional mathematics',
+  'nepal', 'CDC', 'curriculum',
 ]

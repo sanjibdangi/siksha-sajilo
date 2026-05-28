@@ -21,7 +21,11 @@ const SUBJECT_ACCENTS: Record<string, string> = {
   english:     'hover:border-purple-300 hover:shadow-purple-50',
   nepali:      'hover:border-red-300 hover:shadow-red-50',
   social:      'hover:border-orange-300 hover:shadow-orange-50',
+  hpe:         'hover:border-lime-300 hover:shadow-lime-50',
   optmath:     'hover:border-cyan-300 hover:shadow-cyan-50',
+  computer:    'hover:border-slate-300 hover:shadow-slate-50',
+  account:     'hover:border-amber-300 hover:shadow-amber-50',
+  economics:   'hover:border-emerald-300 hover:shadow-emerald-50',
 }
 
 const SUBJECT_ICON_BG: Record<string, string> = {
@@ -30,7 +34,11 @@ const SUBJECT_ICON_BG: Record<string, string> = {
   english:     'bg-purple-50',
   nepali:      'bg-red-50',
   social:      'bg-orange-50',
+  hpe:         'bg-lime-50',
   optmath:     'bg-cyan-50',
+  computer:    'bg-slate-50',
+  account:     'bg-amber-50',
+  economics:   'bg-emerald-50',
 }
 
 export default function DashboardPage() {

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
 const ADMIN_SECRET_KEY = 'siksha_admin_secret'
-const SUBJECTS = ['mathematics', 'science', 'english', 'nepali', 'social', 'optmath']
+const SUBJECTS = ['mathematics', 'science', 'english', 'nepali', 'social', 'hpe', 'optmath', 'computer', 'account', 'economics']
 const GRADES = ['9', '10', 'SEE Prep']
 
 interface VideoRow {

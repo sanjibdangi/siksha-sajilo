@@ -11,7 +11,11 @@ const SUBJECT_NAMES: Record<string, string> = {
   english: 'English',
   nepali: 'Nepali',
   social: 'Social Studies',
+  hpe: 'HPE',
   optmath: 'Optional Maths',
+  computer: 'Computer',
+  account: 'Account',
+  economics: 'Economics',
 }
 
 const SUBJECT_ICONS: Record<string, string> = {
@@ -20,7 +24,11 @@ const SUBJECT_ICONS: Record<string, string> = {
   english: '📖',
   nepali: '🇳🇵',
   social: '🌏',
+  hpe: '🏃',
   optmath: '∑',
+  computer: '💻',
+  account: '📊',
+  economics: '📈',
 }
 
 interface Insight {

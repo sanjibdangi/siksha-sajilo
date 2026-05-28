@@ -11,11 +11,15 @@ const anthropic = new Anthropic()
 
 const SUBJECT_NAMES: Record<string, string> = {
   mathematics: 'Mathematics',
-  science: 'Science',
+  science: 'Science and Technology',
   english: 'English',
   nepali: 'Nepali',
-  social: 'Social Studies',
+  social: 'Social Studies and Population Education',
+  hpe: 'Health, Physical and Creative Education',
   optmath: 'Optional Mathematics',
+  computer: 'Computer Science and IT',
+  account: 'Account',
+  economics: 'Economics',
 }
 
 function buildGenerationPrompt(
