@@ -37,6 +37,7 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const hasRecordedRef = useRef(false)
+  const abortRef = useRef<AbortController | null>(null)
   // Buffer incoming stream chunks between rAF ticks so React renders at most
   // once per animation frame (~60fps) instead of on every network chunk.
   const streamBufferRef = useRef('')
@@ -80,12 +81,14 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
     setMessages([...apiMessages, { role: 'assistant', content: '' }])
     setInput('')
     setStreaming(true)
+    abortRef.current = new AbortController()
 
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: apiMessages, subject, grade, topic, confidence, subjectId, lang: activeLangRef.current }),
+        signal: abortRef.current.signal,
       })
 
       if (res.status === 429) {
@@ -131,12 +134,22 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
         })
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Something went wrong.'
-      setMessages((prev) => {
-        const updated = [...prev]
-        updated[updated.length - 1] = { role: 'assistant', content: `Something went wrong: ${msg}\n\nPlease try again.` }
-        return updated
-      })
+      if (err instanceof Error && err.name === 'AbortError') {
+        // User stopped the stream — trim empty trailing bubble if nothing arrived
+        setMessages(prev => {
+          const next = [...prev]
+          if (next[next.length - 1]?.role === 'assistant' && !next[next.length - 1].content)
+            next.pop()
+          return next
+        })
+      } else {
+        const msg = err instanceof Error ? err.message : 'Something went wrong.'
+        setMessages((prev) => {
+          const updated = [...prev]
+          updated[updated.length - 1] = { role: 'assistant', content: `Something went wrong: ${msg}\n\nPlease try again.` }
+          return updated
+        })
+      }
     } finally {
       setStreaming(false)
       inputRef.current?.focus()
@@ -172,8 +185,31 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
   )
   const streamingMsg = streaming ? messages[messages.length - 1] : null
 
+  function handleLangToggle() {
+    const next: LanguagePreference = activeLangRef.current === 'nepali' ? 'english' : 'nepali'
+    activeLangRef.current = next
+    setActiveLang(next)
+  }
+
   return (
     <div className="flex flex-col h-full bg-[#faf9f7]">
+      {/* Language toggle bar — always visible at the top */}
+      <div className="flex items-center justify-end gap-2 px-4 py-2 border-b border-stone-100 bg-white shrink-0">
+        <span className="text-xs text-stone-400">Reply in</span>
+        <button
+          onClick={handleLangToggle}
+          className={[
+            'flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border font-semibold transition-all',
+            activeLang === 'nepali'
+              ? 'bg-green-600 text-white border-green-600 shadow-sm'
+              : 'border-stone-200 text-stone-500 bg-white hover:border-green-300 hover:text-green-700',
+          ].join(' ')}
+        >
+          <span>{activeLang === 'nepali' ? '🇳🇵' : '🌐'}</span>
+          <span>{activeLang === 'nepali' ? 'नेपाली' : 'English'}</span>
+        </button>
+      </div>
+
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
         <MessageBubble role="assistant" content={welcomeMessage} />
 
@@ -212,50 +248,39 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
             value={input}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder="Ask anything..."
+            placeholder="Ask a question or paste a problem…"
             rows={1}
-            disabled={streaming}
-            className="flex-1 resize-none rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50 leading-relaxed transition-all"
+            className="flex-1 resize-none rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent leading-relaxed transition-all"
           />
-          <button
-            onClick={() => sendMessage(input)}
-            disabled={!input.trim() || streaming}
-            className={[
-              'shrink-0 h-12 w-12 rounded-2xl flex items-center justify-center transition-all',
-              input.trim() && !streaming
-                ? 'bg-green-600 hover:bg-green-700 text-white shadow-sm active:scale-95'
-                : 'bg-stone-100 text-stone-300 cursor-not-allowed border border-stone-200',
-            ].join(' ')}
-            aria-label="Send"
-          >
-            {streaming ? (
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-            ) : (
+          {streaming ? (
+            <button
+              onClick={() => abortRef.current?.abort()}
+              className="shrink-0 h-12 w-12 rounded-2xl flex items-center justify-center bg-red-50 border border-red-200 text-red-500 hover:bg-red-100 transition-all"
+              aria-label="Stop"
+            >
+              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                <rect x="6" y="6" width="12" height="12" rx="2" />
+              </svg>
+            </button>
+          ) : (
+            <button
+              onClick={() => sendMessage(input)}
+              disabled={!input.trim()}
+              className={[
+                'shrink-0 h-12 w-12 rounded-2xl flex items-center justify-center transition-all',
+                input.trim()
+                  ? 'bg-green-600 hover:bg-green-700 text-white shadow-sm active:scale-95'
+                  : 'bg-stone-100 text-stone-300 cursor-not-allowed border border-stone-200',
+              ].join(' ')}
+              aria-label="Send"
+            >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
               </svg>
-            )}
-          </button>
+            </button>
+          )}
         </div>
-        <div className="flex items-center justify-between mt-2">
-          <p className="text-xs text-stone-400">Enter to send · Shift+Enter for new line</p>
-          <button
-            onClick={() => {
-              const next: LanguagePreference = activeLangRef.current === 'nepali' ? 'english' : 'nepali'
-              activeLangRef.current = next
-              setActiveLang(next)
-            }}
-            title={activeLang === 'nepali' ? 'Switch to English' : 'Switch to Nepali'}
-            className={[
-              'text-xs px-2.5 py-1 rounded-full border font-medium transition-all',
-              activeLang === 'nepali'
-                ? 'bg-green-600 text-white border-green-600'
-                : 'border-stone-200 text-stone-400 bg-white hover:border-green-300 hover:text-green-600',
-            ].join(' ')}
-          >
-            नेपाली
-          </button>
-        </div>
+        <p className="text-xs text-stone-400 text-center mt-2">Enter to send · Shift+Enter for new line</p>
       </div>
     </div>
   )

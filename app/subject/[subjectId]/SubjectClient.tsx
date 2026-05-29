@@ -24,35 +24,18 @@ const MODE_LABELS: Record<LearningMode, string> = {
   write:    'Start writing →',
 }
 
-function StepHeader({ number, label, done }: { number: number; label: string; done: boolean }) {
-  return (
-    <div className="flex items-center gap-3 mb-3">
-      <div className={[
-        'h-7 w-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 transition-all',
-        done
-          ? 'bg-green-600 text-white'
-          : 'bg-stone-100 text-stone-400 border border-stone-200',
-      ].join(' ')}>
-        {done ? (
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        ) : number}
-      </div>
-      <span className={`text-sm font-bold ${done ? 'text-green-700' : 'text-stone-700'}`}>{label}</span>
-    </div>
-  )
-}
 
 export function SubjectClient({ subject, grade, topics }: SubjectClientProps) {
-  const [confidence, setConfidence] = useState<ConfidenceLevel | null>(null)
+  // Sensible defaults so the student only *needs* to pick a mode.
+  // Confidence and language are pre-selected but easily changed.
+  const [confidence, setConfidence] = useState<ConfidenceLevel>('mid')
   const [mode, setMode] = useState<LearningMode | null>(null)
   const [topic, setTopic] = useState<string | null>(null)
-  const [lang, setLang] = useState<LanguagePreference | null>(null)
+  const [lang, setLang] = useState<LanguagePreference>('english')
   const router = useRouter()
 
   function handleStart() {
-    if (!confidence || !mode || !lang) return
+    if (!mode) return
 
     const params = new URLSearchParams()
     params.set('grade', grade)
@@ -64,8 +47,7 @@ export function SubjectClient({ subject, grade, topics }: SubjectClientProps) {
   }
 
   const gradeLabel = grade === 'SEE Prep' ? 'SEE Prep' : `Class ${grade}`
-  const canStart = confidence !== null && mode !== null && lang !== null
-  const completedSteps = [confidence !== null, lang !== null, mode !== null].filter(Boolean).length
+  const canStart = mode !== null
 
   return (
     <div className="min-h-screen bg-[#faf9f7]">
@@ -87,32 +69,23 @@ export function SubjectClient({ subject, grade, topics }: SubjectClientProps) {
               <p className="text-xs text-stone-400">{gradeLabel}</p>
             </div>
           </div>
-          {/* Step progress */}
-          <div className="ml-auto flex gap-1.5 items-center">
-            {[1, 2, 3].map((n) => (
-              <div
-                key={n}
-                className={`h-1.5 w-6 rounded-full transition-all ${n <= completedSteps ? 'bg-green-500' : 'bg-stone-200'}`}
-              />
-            ))}
-          </div>
         </div>
       </header>
 
-      <main className="max-w-lg w-full mx-auto px-4 py-8 space-y-7">
+      <main className="max-w-lg w-full mx-auto px-4 py-6 space-y-5">
 
         <div>
-          <StepHeader number={1} label="How confident are you today?" done={confidence !== null} />
+          <p className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2.5">How are you feeling today?</p>
           <ConfidencePicker value={confidence} onChange={setConfidence} />
         </div>
 
         <div>
-          <StepHeader number={2} label="Which language?" done={lang !== null} />
+          <p className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2.5">Language</p>
           <LanguagePicker value={lang} onChange={setLang} />
         </div>
 
         <div>
-          <StepHeader number={3} label="What do you want to do?" done={mode !== null} />
+          <p className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2.5">What do you want to do?</p>
           <ModeSelector value={mode} onChange={setMode} />
         </div>
 
@@ -127,7 +100,7 @@ export function SubjectClient({ subject, grade, topics }: SubjectClientProps) {
                 : 'bg-stone-100 text-stone-400 cursor-not-allowed border border-stone-200',
             ].join(' ')}
           >
-            {canStart && mode ? MODE_LABELS[mode] : 'Complete the steps above'}
+            {canStart && mode ? MODE_LABELS[mode] : 'Pick a mode above to start'}
           </button>
 
           <div className="grid grid-cols-2 gap-2">

@@ -64,23 +64,35 @@ export function ScoreScreen({ score, total, grade, subjectId, topic, onRetry }: 
         >
           Try again
         </button>
-        <Link
-          href={`/memorize/${subjectId}?grade=${gradeParam}${topicParam}`}
-          className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl border-2 border-stone-200 bg-white text-stone-700 font-semibold text-sm hover:border-stone-300 transition-colors"
-        >
-          <span>🃏</span> Reinforce with flashcards
-        </Link>
-        <Link
-          href={`/tutor/${subjectId}?grade=${gradeParam}&confidence=mid${topicParam}`}
-          className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl border-2 border-stone-200 bg-white text-stone-700 font-semibold text-sm hover:border-stone-300 transition-colors"
-        >
-          <span>💬</span> Discuss with AI tutor
-        </Link>
+
+        <div className="flex items-center gap-3 py-1">
+          <span className="flex-1 h-px bg-stone-200" />
+          <span className="text-xs text-stone-400 shrink-0">or keep going</span>
+          <span className="flex-1 h-px bg-stone-200" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Link
+            href={`/memorize/${subjectId}?grade=${gradeParam}${topicParam}`}
+            className="flex flex-col items-center gap-1.5 py-3.5 px-3 rounded-2xl border border-stone-200 bg-white text-stone-600 hover:border-stone-300 hover:bg-stone-50 transition-colors text-center"
+          >
+            <span className="text-xl">🃏</span>
+            <span className="text-xs font-semibold">Flashcards</span>
+          </Link>
+          <Link
+            href={`/tutor/${subjectId}?grade=${gradeParam}&confidence=mid${topicParam}`}
+            className="flex flex-col items-center gap-1.5 py-3.5 px-3 rounded-2xl border border-stone-200 bg-white text-stone-600 hover:border-stone-300 hover:bg-stone-50 transition-colors text-center"
+          >
+            <span className="text-xl">💬</span>
+            <span className="text-xs font-semibold">AI Tutor</span>
+          </Link>
+        </div>
+
         <Link
           href={`/subject/${subjectId}`}
-          className="block text-sm text-stone-400 hover:text-stone-600 transition-colors py-1"
+          className="block text-xs text-stone-400 hover:text-stone-600 transition-colors py-1 text-center"
         >
-          Back to subject
+          ← Back to subject
         </Link>
       </div>
     </div>

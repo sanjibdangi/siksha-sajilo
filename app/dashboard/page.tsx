@@ -54,6 +54,8 @@ export default function DashboardPage() {
   const [grade, setGrade] = useState<GradeLevel>('10')
   const [streak, setStreak] = useState<StreakData | null>(null)
   const [plan, setPlan] = useState<StudyPlan | null>(null)
+  const [firstName, setFirstName] = useState<string>('')
+  const [loadingWidgets, setLoadingWidgets] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
@@ -62,13 +64,16 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => {
+    const supabase = createClient()
     Promise.all([
-      fetch('/api/streak').then(r => r.ok ? r.json() : null),
-      fetch('/api/study-plan').then(r => r.ok ? r.json() : null),
-    ]).then(([streakData, planData]) => {
+      fetch('/api/streak').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('/api/study-plan').then(r => r.ok ? r.json() : null).catch(() => null),
+      Promise.resolve(supabase.from('users').select('name').single()).then(({ data }) => data as { name: string } | null).catch(() => null),
+    ]).then(([streakData, planData, userData]) => {
       if (streakData) setStreak(streakData)
       if (planData?.plan) setPlan(planData.plan)
-    }).catch(() => {})
+      if (userData?.name) setFirstName((userData.name as string).split(' ')[0])
+    }).finally(() => setLoadingWidgets(false))
   }, [])
 
   function handleGradeChange(g: GradeLevel) {
@@ -97,17 +102,30 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-10 space-y-8">
-        <div className="space-y-3">
-          <StreakWidget data={streak} examDate={plan?.exam_date ?? null} />
-          <StudyPlanWidget plan={plan} grade={grade} onPlanGenerated={setPlan} />
+      <main className="max-w-3xl mx-auto px-4 py-8 space-y-8">
+
+        {/* Greeting */}
+        <div>
+          <h1 className="text-2xl font-black text-stone-900">
+            {firstName ? `Namaste, ${firstName}` : 'Namaste!'}
+          </h1>
+          <p className="text-stone-500 text-sm mt-1">Select your grade, then pick a subject to start.</p>
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <h1 className="text-2xl font-black text-stone-900">What are you studying today?</h1>
-            <p className="text-stone-500 text-sm mt-1">Select your grade, then pick a subject.</p>
+        {/* Widgets with skeleton loaders */}
+        {loadingWidgets ? (
+          <div className="space-y-3">
+            <div className="h-[68px] bg-stone-100 rounded-2xl animate-pulse" />
+            <div className="h-[76px] bg-stone-100 rounded-2xl animate-pulse" />
           </div>
+        ) : (
+          <div className="space-y-3">
+            <StreakWidget data={streak} examDate={plan?.exam_date ?? null} />
+            <StudyPlanWidget plan={plan} grade={grade} onPlanGenerated={setPlan} />
+          </div>
+        )}
+
+        <div className="space-y-4">
           <div className="flex gap-2 flex-wrap">
             {GRADES.map((g) => (
               <button

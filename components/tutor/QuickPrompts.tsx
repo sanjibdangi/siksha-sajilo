@@ -27,12 +27,13 @@ const PROMPTS: Record<GradeLevel, string[]> = {
 
 export function QuickPrompts({ grade, onSelect }: QuickPromptsProps) {
   return (
-    <div className="flex flex-col gap-2 pl-11">
+    <div className="flex flex-col gap-2">
+      <p className="text-xs text-stone-400 font-medium mb-0.5">Try asking…</p>
       {PROMPTS[grade].map((prompt) => (
         <button
           key={prompt}
           onClick={() => onSelect(prompt)}
-          className="text-left text-sm px-4 py-3 rounded-xl border border-gray-200 text-gray-600 hover:border-indigo-300 hover:text-indigo-700 hover:bg-indigo-50 transition-all"
+          className="text-left text-sm px-4 py-3 rounded-xl border border-stone-200 text-stone-600 hover:border-green-300 hover:text-green-800 hover:bg-green-50/60 transition-all"
         >
           {prompt}
         </button>
