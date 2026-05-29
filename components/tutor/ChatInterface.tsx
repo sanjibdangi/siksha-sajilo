@@ -31,6 +31,9 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [activeLang, setActiveLang] = useState<LanguagePreference>(lang)
+  // Ref mirrors activeLang so sendMessage always reads the latest value
+  // even if the toggle was clicked just before Enter was pressed.
+  const activeLangRef = useRef<LanguagePreference>(lang)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const hasRecordedRef = useRef(false)
@@ -82,7 +85,7 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: apiMessages, subject, grade, topic, confidence, subjectId, lang: activeLang }),
+        body: JSON.stringify({ messages: apiMessages, subject, grade, topic, confidence, subjectId, lang: activeLangRef.current }),
       })
 
       if (res.status === 429) {
@@ -237,7 +240,11 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
         <div className="flex items-center justify-between mt-2">
           <p className="text-xs text-stone-400">Enter to send · Shift+Enter for new line</p>
           <button
-            onClick={() => setActiveLang(l => l === 'nepali' ? 'english' : 'nepali')}
+            onClick={() => {
+              const next: LanguagePreference = activeLangRef.current === 'nepali' ? 'english' : 'nepali'
+              activeLangRef.current = next
+              setActiveLang(next)
+            }}
             title={activeLang === 'nepali' ? 'Switch to English' : 'Switch to Nepali'}
             className={[
               'text-xs px-2.5 py-1 rounded-full border font-medium transition-all',

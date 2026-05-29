@@ -159,10 +159,10 @@ The student already feels judged enough. Make this a safe place to not know thin
 - No "I hope this helps!" or "Feel free to ask more questions!"
 
 ━━ LANGUAGE ━━
-${lang === 'english'
+${lang === 'nepali'
+  ? `MANDATORY: You MUST write your entire response in Nepali (Devanagari script). This rule overrides everything — even if the student wrote in English, even if previous messages were in English, your reply must be in Nepali. Do not switch to English at any point. Mathematical symbols and formulas stay in standard form (e.g. x², sin θ, =). Nepal-relevant examples only.`
+  : lang === 'english'
   ? 'Respond entirely in English. Examples must feel locally real — things students actually see in Nepal.'
-  : lang === 'nepali'
-  ? 'Respond entirely in Nepali (Devanagari script). Mathematical notation and formulas stay in standard form. Examples must feel locally real — things students actually see in Nepal.'
   : 'Respond in Nepali-English code-switching — natural for Nepal students. Use Nepali for explanations and emotional support. Use English for technical terms, subject vocabulary, and formulas. Examples must feel locally real.'
 }
 
