@@ -88,7 +88,7 @@ export function StudyPlanWidget({ plan, grade, onPlanGenerated }: Props) {
                 📅 Get your personalised study plan
               </p>
               <p className="text-xs text-stone-400 mt-0.5">
-                Set your SEE exam date — we'll build a daily schedule around it.
+                Set your SEE exam date — we&apos;ll build a daily schedule around it.
               </p>
             </div>
             <span className="text-stone-400 group-hover:text-green-600 text-lg">→</span>
@@ -140,7 +140,7 @@ export function StudyPlanWidget({ plan, grade, onPlanGenerated }: Props) {
       <div className="bg-white border border-stone-200 rounded-2xl px-5 py-4 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-xs font-semibold text-stone-400 uppercase tracking-wider">
-            Today's focus · {todayName}
+            Today&apos;s focus · {todayName}
           </p>
           <button
             onClick={() => setShowModal(true)}
@@ -185,7 +185,7 @@ export function StudyPlanWidget({ plan, grade, onPlanGenerated }: Props) {
             <div>
               <h3 className="font-black text-stone-900">Update your study plan</h3>
               <p className="text-xs text-stone-400 mt-1">
-                Pick your SEE exam date and we'll regenerate your schedule.
+                Pick your SEE exam date and we&apos;ll regenerate your schedule.
               </p>
             </div>
             <input
