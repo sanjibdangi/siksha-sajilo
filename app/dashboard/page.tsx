@@ -6,6 +6,15 @@ import Link from 'next/link'
 import { SUBJECTS } from '@/types/subject'
 import { createClient } from '@/lib/supabase'
 import type { GradeLevel } from '@/types/subject'
+import { StreakWidget } from '@/components/dashboard/StreakWidget'
+import { StudyPlanWidget } from '@/components/dashboard/StudyPlanWidget'
+import type { StudyPlan } from '@/components/dashboard/StudyPlanWidget'
+
+interface StreakData {
+  current_streak: number
+  longest_streak: number
+  studied_today: boolean
+}
 
 const GRADES: { value: GradeLevel; label: string; desc: string }[] = [
   { value: '9',        label: 'Class 9',   desc: 'Foundation' },
@@ -43,11 +52,23 @@ const SUBJECT_ICON_BG: Record<string, string> = {
 
 export default function DashboardPage() {
   const [grade, setGrade] = useState<GradeLevel>('10')
+  const [streak, setStreak] = useState<StreakData | null>(null)
+  const [plan, setPlan] = useState<StudyPlan | null>(null)
   const router = useRouter()
 
   useEffect(() => {
     const saved = localStorage.getItem(GRADE_KEY) as GradeLevel | null
     if (saved) setGrade(saved)
+  }, [])
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/streak').then(r => r.ok ? r.json() : null),
+      fetch('/api/study-plan').then(r => r.ok ? r.json() : null),
+    ]).then(([streakData, planData]) => {
+      if (streakData) setStreak(streakData)
+      if (planData?.plan) setPlan(planData.plan)
+    }).catch(() => {})
   }, [])
 
   function handleGradeChange(g: GradeLevel) {
@@ -77,6 +98,11 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-10 space-y-8">
+        <div className="space-y-3">
+          <StreakWidget data={streak} examDate={plan?.exam_date ?? null} />
+          <StudyPlanWidget plan={plan} grade={grade} onPlanGenerated={setPlan} />
+        </div>
+
         <div className="space-y-4">
           <div>
             <h1 className="text-2xl font-black text-stone-900">What are you studying today?</h1>

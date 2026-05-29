@@ -30,6 +30,7 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
+  const [activeLang, setActiveLang] = useState<LanguagePreference>(lang)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const hasRecordedRef = useRef(false)
@@ -81,7 +82,7 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: apiMessages, subject, grade, topic, confidence, subjectId, lang }),
+        body: JSON.stringify({ messages: apiMessages, subject, grade, topic, confidence, subjectId, lang: activeLang }),
       })
 
       if (res.status === 429) {
@@ -233,7 +234,21 @@ export function ChatInterface({ subject, subjectId, grade, confidence, topic, la
             )}
           </button>
         </div>
-        <p className="text-xs text-stone-400 text-center mt-2">Enter to send · Shift+Enter for new line</p>
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-xs text-stone-400">Enter to send · Shift+Enter for new line</p>
+          <button
+            onClick={() => setActiveLang(l => l === 'nepali' ? 'english' : 'nepali')}
+            title={activeLang === 'nepali' ? 'Switch to English' : 'Switch to Nepali'}
+            className={[
+              'text-xs px-2.5 py-1 rounded-full border font-medium transition-all',
+              activeLang === 'nepali'
+                ? 'bg-green-600 text-white border-green-600'
+                : 'border-stone-200 text-stone-400 bg-white hover:border-green-300 hover:text-green-600',
+            ].join(' ')}
+          >
+            नेपाली
+          </button>
+        </div>
       </div>
     </div>
   )
